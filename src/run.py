@@ -12,10 +12,10 @@ import os
 
 import numpy as np
 
-from src import atd, features, model, tagging
+from src import atd, context, features, model, tagging
 from games import GAME, half_video_blocks
 
-OUT = os.path.join(atd.ROOT, "submissions", "v2.csv")
+OUT = os.path.join(atd.ROOT, "submissions", "v3.csv")
 
 
 def set_piece_mask(n):
@@ -46,7 +46,7 @@ def possessions(labels):
     return len(lengths), (np.mean(lengths) / features.FPS if lengths else 0.0)
 
 
-def calibrate(team_llr, dead, n, target_s=model.POSSESSION_S, steps=12):
+def calibrate(team_llr, dead, n, extra=0.0, target_s=model.POSSESSION_S, steps=12):
     """K_TEAM such that the decoded match's own mean possession length is target_s.
 
     Larger K_TEAM -> more evidence -> more, shorter possessions, so bisect in log space.
@@ -55,7 +55,7 @@ def calibrate(team_llr, dead, n, target_s=model.POSSESSION_S, steps=12):
     lo, hi = np.log(0.05), np.log(20.0)
     for _ in range(steps):
         mid = (lo + hi) / 2
-        _, mean_s = possessions(decode(model.emissions(team_llr, dead, np.exp(mid)), n))
+        _, mean_s = possessions(decode(model.emissions(team_llr, dead, np.exp(mid), extra), n))
         if mean_s > target_s:
             lo = mid
         else:
@@ -82,8 +82,12 @@ def main():
     team_llr = model.team_evidence(f, model.CONFIG)
     dead = model.dead_evidence(f, set_piece_mask(n))
 
-    k_team = args.k_team if args.k_team is not None else calibrate(team_llr, dead, n)
-    labels = decode(model.emissions(team_llr, dead, k_team), n)
+    extra = 0.0
+    if model.CONFIG["context"]:
+        extra = model.CONFIG["context_scale"] * context.context_llr(a, f)
+
+    k_team = args.k_team if args.k_team is not None else calibrate(team_llr, dead, n, extra)
+    labels = decode(model.emissions(team_llr, dead, k_team, extra), n)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     with open(args.out, "w", newline="\n") as handle:

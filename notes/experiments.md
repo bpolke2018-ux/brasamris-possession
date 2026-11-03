@@ -24,3 +24,13 @@ All runs auto-calibrate K_TEAM to a 12.5 s mean possession. e0 = v1 rules. e1 co
 | e2_flight8 | 0.708 | 0.121 | 3.620 | 350 | 1.316 | 7.220 | 31.520 | 0.174 | 0.311 | 0.000 |
 | e3_persist10 | 0.669 | 0.138 | 3.860 | 349 | 2.000 | 6.800 | 30.928 | 0.095 | 0.320 | 0.000 |
 
+## round 2: team-shape context — 2026-11-02
+
+Shape-context log-odds from pseudo-label logistic regression (cross-half pseudo acc 0.84/0.85, base 0.62), divided by its 31 s autocorrelation time. KEPT as v3: e4 (x1). x3 no better.
+
+| run | phase_agree | restart_within_2s | restart_median_offset_s | possessions | dur_p10 | dur_p50 | dur_p90 | short_lt2s | share_D | share_X |
+|---|---|---|---|---|---|---|---|---|---|---|
+| e2_flight8 | 0.708 | 0.121 | 3.620 | 350 | 1.316 | 7.220 | 31.520 | 0.174 | 0.311 | 0.000 |
+| e4_context | 0.720 | 0.121 | 3.880 | 350 | 1.280 | 7.220 | 32.456 | 0.171 | 0.309 | 0.000 |
+| e4b_context_x3 | 0.718 | 0.121 | 3.880 | 352 | 1.280 | 7.120 | 32.584 | 0.173 | 0.308 | 0.000 |
+

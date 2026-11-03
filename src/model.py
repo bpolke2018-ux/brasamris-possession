@@ -53,6 +53,10 @@ CONFIG = {
     # Controlled possession: the same team must be nearest for this many consecutive ball-seen
     # frames before its evidence counts in full (ramps up linearly). 0 = v1.
     "persist_frames": 0,
+    # Add team-shape context (src/context.py), learned from the algorithm's own pseudo-labels.
+    "context": True,     # kept in v3
+    # Multiplier on the context log-odds (1 = as derived: per-frame logit / autocorrelation time).
+    "context_scale": 1.0,
 }
 
 
@@ -109,12 +113,16 @@ def dead_evidence(f, set_piece_mask):
     return out
 
 
-def emissions(team_llr, dead, k_team=None):
-    """(n, 3) log-scores. Only differences between states matter."""
+def emissions(team_llr, dead, k_team=None, extra_llr=0.0):
+    """(n, 3) log-scores. Only differences between states matter.
+
+    team_llr is scaled by K_TEAM; extra_llr (e.g. shape context) is already in nats and is not.
+    """
     k = K_TEAM if k_team is None else k_team
+    total = k * team_llr + extra_llr
     E = np.zeros((len(dead), 3), np.float64)
-    E[:, H] = k * team_llr / 2
-    E[:, A] = -k * team_llr / 2
+    E[:, H] = total / 2
+    E[:, A] = -total / 2
     E[:, D] = dead
     return E
 
