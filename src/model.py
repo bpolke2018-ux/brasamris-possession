@@ -1,11 +1,10 @@
-"""v1: per-frame evidence -> 3-state (H, A, D) HMM -> Viterbi.
+"""Per-frame evidence -> 3-state (H, A, D) HMM -> Viterbi.
 
 Every constant below is set from general football reasoning or from unlabelled aggregate
 statistics of this match's tracking (notes/exploration.md), never from the public ground truth.
-The reasoning is written next to each one.
+The reasoning is written next to each one. Options that were tried are switches in CONFIG, so an
+experiment is one flag (see notes/experiments.md for which were kept).
 """
-
-import math
 
 import numpy as np
 
@@ -23,19 +22,12 @@ SHARE_ENDING_IN_STOPPAGE = 1.0 / 3.0
 # for goals and injuries): ~30 s on average. The restart is equally likely to go to either side.
 DEAD_BALL_S = 30.0
 
-# --- team evidence (ball seen, in bounds) ----------------------------------------------------
-# A player within a couple of metres of the ball, with the nearest opponent further away, is
-# evidence of control. The weight decays with the controller's distance (3 m scale: beyond a
-# stride or two the ball is loose or in flight) and saturates in the margin (2 m scale).
-# K_TEAM was first set to 0.2 nats/frame (~2 s of clear control to overturn a possession), but
-# the ball is unseen on 41% of frames and the controller is rarely within 1 m, so the effective
-# evidence was much weaker than intended: the decoded match had 125 possessions of 32.6 s, far
-# from the 10-15 s football prior. K_TEAM is therefore set so that the decoder's OWN output
-# matches that prior (no labels involved): 0.2 -> 32.6 s, 0.4 -> 22.4 s, 0.8 -> 15.3 s,
-# 1.0 -> 12.9 s, 1.6 -> 9.5 s. 1.0 is the round value inside the 10-15 s band.
+# --- team evidence weight --------------------------------------------------------------------
+# K_TEAM scales all H-vs-A evidence. It is not hand-picked: src/run.py calibrates it (bisection)
+# so that the decoded match's OWN mean possession length equals POSSESSION_S. No labels involved.
+# v1 picked 1.0 by hand from this sweep: 0.2 -> 32.6 s, 0.4 -> 22.4 s, 0.8 -> 15.3 s,
+# 1.0 -> 12.9 s, 1.6 -> 9.5 s.
 K_TEAM = 1.0
-CONTROL_DIST_M = 3.0
-MARGIN_SCALE_M = 2.0
 
 # --- dead-ball evidence ----------------------------------------------------------------------
 # Live play: outfield players average ~1.8-2 m/s over 90 minutes (10-11 km). During stoppages
@@ -49,6 +41,20 @@ K_BALL_FAST = 0.05      # ball travelling > 3 m/s inside the pitch: someone kick
 BALL_FAST = 3.0
 K_SET_PIECE = 0.01      # inside a Smart Tagging SET PIECES window (35 s): a restart is nearby
 
+CONFIG = {
+    # A player within a couple of metres of the ball, with the nearest opponent further away, is
+    # evidence of control. Weight decays with the controller's distance and saturates in the
+    # margin. v1: 3 m (a stride or two).
+    "control_dist_m": 3.0,
+    "margin_scale_m": 2.0,
+    # A ball travelling faster than this is in flight (passes and shots run 10-30 m/s, a dribble
+    # 2-6 m/s): the nearest player is not controlling it. None = v1 (no gate). Kept in v2.
+    "max_control_ball_speed": 8.0,
+    # Controlled possession: the same team must be nearest for this many consecutive ball-seen
+    # frames before its evidence counts in full (ramps up linearly). 0 = v1.
+    "persist_frames": 0,
+}
+
 
 def transition_logs():
     leave = 1.0 / (POSSESSION_S * FPS)
@@ -61,25 +67,55 @@ def transition_logs():
     return np.log(T)
 
 
-def emissions(f, set_piece_mask):
-    """(n, 3) log-scores. Only differences between states matter."""
-    n = len(f["margin"])
-    E = np.zeros((n, 3), np.float64)
+def _run_lengths(sign):
+    """For each frame, how many consecutive frames (ending here) share the same nonzero sign."""
+    out = np.zeros(len(sign), np.int32)
+    count, last = 0, 0
+    for i, s in enumerate(sign.tolist()):
+        if s != 0 and s == last:
+            count += 1
+        elif s != 0:
+            count = 1
+        else:
+            count = 0
+        last = s
+        out[i] = count
+    return out
 
+
+def team_evidence(f, cfg=CONFIG):
+    """Unit-weight H-vs-A log-likelihood ratio per frame (> 0 favours H)."""
     seen_in = f["ball_seen"] & ~f["ball_out"]
-    dmin = np.fmin(f["d_home"], f["d_away"])
-    w = np.where(seen_in, np.exp(-np.nan_to_num(dmin, nan=99.0) / CONTROL_DIST_M), 0.0)
-    llr = K_TEAM * w * np.tanh(np.nan_to_num(f["margin"]) / MARGIN_SCALE_M)
-    E[:, H] += llr / 2
-    E[:, A] -= llr / 2
+    dmin = np.nan_to_num(np.fmin(f["d_home"], f["d_away"]), nan=99.0)
+    w = np.where(seen_in, np.exp(-dmin / cfg["control_dist_m"]), 0.0)
+    if cfg["max_control_ball_speed"] is not None:
+        w = np.where(np.nan_to_num(f["ball_speed"]) > cfg["max_control_ball_speed"], 0.0, w)
+    margin = np.nan_to_num(f["margin"])
+    if cfg["persist_frames"] > 0:
+        sign = np.where(w > 0, np.sign(margin), 0).astype(np.int8)
+        w = w * np.minimum(_run_lengths(sign) / cfg["persist_frames"], 1.0)
+    return w * np.tanh(margin / cfg["margin_scale_m"])
 
+
+def dead_evidence(f, set_piece_mask):
+    """D log-score per frame relative to the live states."""
+    seen_in = f["ball_seen"] & ~f["ball_out"]
     z = np.clip((WALK_SPEED - np.nan_to_num(f["mean_speed"], nan=WALK_SPEED)) / SPEED_SCALE, -3, 3)
-    E[:, D] += K_SPEED * z
-    E[:, D] += K_BALL_MISSING * ~f["ball_seen"]
-    E[:, D] += K_BALL_OUT * f["ball_out"]
-    fast = seen_in & (np.nan_to_num(f["ball_speed"]) > BALL_FAST)
-    E[:, D] -= K_BALL_FAST * fast
-    E[:, D] += K_SET_PIECE * set_piece_mask
+    out = K_SPEED * z
+    out += K_BALL_MISSING * ~f["ball_seen"]
+    out += K_BALL_OUT * f["ball_out"]
+    out -= K_BALL_FAST * (seen_in & (np.nan_to_num(f["ball_speed"]) > BALL_FAST))
+    out += K_SET_PIECE * set_piece_mask
+    return out
+
+
+def emissions(team_llr, dead, k_team=None):
+    """(n, 3) log-scores. Only differences between states matter."""
+    k = K_TEAM if k_team is None else k_team
+    E = np.zeros((len(dead), 3), np.float64)
+    E[:, H] = k * team_llr / 2
+    E[:, A] = -k * team_llr / 2
+    E[:, D] = dead
     return E
 
 

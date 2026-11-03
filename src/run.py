@@ -1,9 +1,13 @@
-"""Build submissions/v1.csv from the provided data. Deterministic: no randomness anywhere.
+"""Build a submission from the provided data. Deterministic: no randomness anywhere.
 
-    python -m src.run
+    python -m src.run                                   # -> submissions/v2.csv
+    python -m src.run --set persist_frames=10 --out cache/exp.csv
+
+v1 (committed earlier) is reproduced by: --k-team 1.0 --set max_control_ball_speed=None
 """
 
 import argparse
+import ast
 import os
 
 import numpy as np
@@ -11,7 +15,7 @@ import numpy as np
 from src import atd, features, model, tagging
 from games import GAME, half_video_blocks
 
-OUT = os.path.join(atd.ROOT, "submissions", "v1.csv")
+OUT = os.path.join(atd.ROOT, "submissions", "v2.csv")
 
 
 def set_piece_mask(n):
@@ -22,46 +26,74 @@ def set_piece_mask(n):
     return mask
 
 
+def decode(E, n):
+    labels = np.full(n, "X", dtype="<U1")      # ungraded frames: never scored
+    logT = model.transition_logs()
+    for _, first, last in half_video_blocks(GAME):
+        labels[first:last + 1] = model.LABELS[model.viterbi(E[first:last + 1], logT)]
+    return labels
+
+
 def possessions(labels):
     """(count, mean duration s) of maximal H/A runs, per half, graded frames only."""
     lengths = []
     for _, first, last in half_video_blocks(GAME):
         seg = labels[first:last + 1]
-        start = 0
-        for i in range(1, len(seg) + 1):
-            if i == len(seg) or seg[i] != seg[start]:
-                if seg[start] in ("H", "A"):
-                    lengths.append(i - start)
-                start = i
+        change = np.flatnonzero(seg[1:] != seg[:-1]) + 1
+        starts = np.concatenate(([0], change))
+        ends = np.concatenate((change, [len(seg)]))
+        lengths.extend(e - s for s, e in zip(starts, ends) if seg[s] in ("H", "A"))
     return len(lengths), (np.mean(lengths) / features.FPS if lengths else 0.0)
+
+
+def calibrate(team_llr, dead, n, target_s=model.POSSESSION_S, steps=12):
+    """K_TEAM such that the decoded match's own mean possession length is target_s.
+
+    Larger K_TEAM -> more evidence -> more, shorter possessions, so bisect in log space.
+    Deterministic: fixed bracket, fixed number of steps.
+    """
+    lo, hi = np.log(0.05), np.log(20.0)
+    for _ in range(steps):
+        mid = (lo + hi) / 2
+        _, mean_s = possessions(decode(model.emissions(team_llr, dead, np.exp(mid)), n))
+        if mean_s > target_s:
+            lo = mid
+        else:
+            hi = mid
+    return float(np.round(np.exp((lo + hi) / 2), 4))
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", default=OUT)
-    parser.add_argument("--k-team", type=float, default=model.K_TEAM,
-                        help="team-evidence weight (nats/frame); see model.py")
+    parser.add_argument("--set", nargs="*", default=[], metavar="KEY=VALUE",
+                        help="override model.CONFIG entries")
+    parser.add_argument("--k-team", type=float, help="fixed K_TEAM instead of calibrating")
     args = parser.parse_args()
-    model.K_TEAM = args.k_team
+    for item in args.set:
+        key, value = item.split("=", 1)
+        if key not in model.CONFIG:
+            raise KeyError("unknown option {!r}; have {}".format(key, sorted(model.CONFIG)))
+        model.CONFIG[key] = ast.literal_eval(value)
 
     a = atd.load()
     f = features.compute(a)
     n = len(a["bx"])
-    E = model.emissions(f, set_piece_mask(n))
-    logT = model.transition_logs()
+    team_llr = model.team_evidence(f, model.CONFIG)
+    dead = model.dead_evidence(f, set_piece_mask(n))
 
-    labels = np.full(n, "X", dtype="<U1")      # ungraded frames: never scored
-    for _, first, last in half_video_blocks(GAME):
-        labels[first:last + 1] = model.LABELS[model.viterbi(E[first:last + 1], logT)]
+    k_team = args.k_team if args.k_team is not None else calibrate(team_llr, dead, n)
+    labels = decode(model.emissions(team_llr, dead, k_team), n)
 
-    os.makedirs(os.path.dirname(args.out), exist_ok=True)
+    os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     with open(args.out, "w", newline="\n") as handle:
         handle.write("frame,label\n")
         handle.writelines("{},{}\n".format(i, lab) for i, lab in enumerate(labels))
 
     count, mean_s = possessions(labels)
     graded = labels != "X"
-    print("wrote {}".format(os.path.relpath(args.out, atd.ROOT)))
+    print("wrote {}  (K_TEAM {}, config {})".format(
+        os.path.relpath(args.out, atd.ROOT), k_team, model.CONFIG))
     print("graded frames: H {:.1f}%  A {:.1f}%  D {:.1f}%".format(
         *(100 * np.mean(labels[graded] == s) for s in "HAD")))
     print("possessions (full match): {}  mean duration {:.1f} s".format(count, mean_s))

@@ -9,7 +9,7 @@ cache/
 # The public 5-minute ground truth ships with the (MIT) starter repository, so it may be committed
 !evaluation/gt/*.csv
 # Our own submission file is a deliverable and contains labels only, no match data
-!submissions/v1.csv
+!submissions/v*.csv
 
 # Generated scoring output
 evaluation/reports/
