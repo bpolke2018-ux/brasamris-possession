@@ -1,0 +1,12 @@
+# Match data is covered by the competition terms -- never commit it
+data/
+*.mp4
+*.zip
+*.csv
+!placeholder.csv
+
+# Python / tooling
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
