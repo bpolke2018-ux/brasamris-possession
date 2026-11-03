@@ -1,9 +1,19 @@
 # Match data is covered by the competition terms -- never commit it
 data/
+cache/
 *.mp4
 *.zip
+*.npz
 *.csv
 !placeholder.csv
+# The public 5-minute ground truth ships with the (MIT) starter repository, so it may be committed
+!evaluation/gt/*.csv
+# Our own submission file is a deliverable and contains labels only, no match data
+!submissions/v1.csv
+
+# Generated scoring output
+evaluation/reports/
+evaluation/scoreboard.csv
 
 # Python / tooling
 .venv/

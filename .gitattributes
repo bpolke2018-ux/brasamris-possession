@@ -1,0 +1,2 @@
+# Keep CSVs byte-for-byte: the submission must be reproduced exactly
+*.csv -text
