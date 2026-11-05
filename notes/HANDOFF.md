@@ -27,7 +27,24 @@ The pipeline:
 - **Dropped:** control radius 1.5 m (0.672) and a 10-frame persistence rule (0.669). Context ×3
   (0.718) was no better than ×1.
 
-## Half-done / not started
+## Update 2026-11-05
+
+The set-piece Team tag (e5), start-of-window D timing (e6, e7) and minimum-possession merges
+(e8, e9) were all tried and dropped. Numbers and reasons are in `notes/experiments.md`. v3 is
+still the best version.
+
+`notes/technical_document.md` is drafted.
+
+X abstention was reasoned out rather than tested: under spellF1 an X is the same as extending the
+previous label, and under macroF1 it is a miss, so on graded frames it cannot gain.
+
+The proxy is biased towards long possessions, so always read it together with the structure
+numbers.
+
+Next: an HSMM or restart-burst detector. Then a single public-window sanity score of the final
+version, and push to a public GitHub repo (needs Brandon's sign-in).
+
+## Half-done / not started (as of 2026-11-03)
 
 - Restart alignment is poor for every version (~12–14% within 2 s). Before trusting it, check
   where the restart sits inside the fixed 35 s SET PIECES windows. Use aggregate offsets only.

@@ -57,7 +57,58 @@ CONFIG = {
     "context": True,     # kept in v3
     # Multiplier on the context log-odds (1 = as derived: per-frame logit / autocorrelation time).
     "context_scale": 1.0,
+    # Set-piece windows as D evidence: "full" 35 s window (v1-v3) or "start" (-10 s..+3 s).
+    "sp_dead_window": "full",
+    # Restarting team from the set-piece Team tag: H/A evidence over the first sp_team_s seconds
+    # after the tag start, sp_team_nats per frame. The tag is automatic, so moderate: 0.02 nats
+    # per frame is ~5 nats over 10 s -- enough to pick the side at a restart, not enough to hold
+    # a possession against clear ball evidence. 0 = off (v1-v3).
+    "sp_team_nats": 0.0,
+    "sp_team_s": 10.0,
+    # Minimum controlled possession, seconds. CHALLENGE.md: a touch, deflection or won header
+    # without control is not a change of possession, and "keeps the ball for a few seconds" is
+    # the suggested proxy for control. Live segments shorter than this are given back to the
+    # surrounding live team (or merged with the following one after a stoppage). 0 = off.
+    "min_possession_s": 0.0,
 }
+
+
+def enforce_min_possession(seg_labels, min_frames):
+    """Relabel H/A runs shorter than min_frames inside one half. Deterministic, left to right.
+
+    A short run between two live runs of the same team is a touch inside that team's possession;
+    a short run next to a D stretch is assigned to the neighbouring live run (previous if live,
+    otherwise next). Runs that cannot be merged (live neighbours of both teams, or only D around)
+    are left alone: those are genuine quick changes or restarts.
+    """
+    if min_frames <= 0:
+        return seg_labels
+    lab = seg_labels.copy()
+    for _ in range(3):                       # a merge can create a new short run; repeat a little
+        change = np.flatnonzero(lab[1:] != lab[:-1]) + 1
+        starts = np.concatenate(([0], change))
+        ends = np.concatenate((change, [len(lab)]))
+        runs = list(zip(lab[starts], starts, ends))
+        changed = False
+        for i, (v, s, e) in enumerate(runs):
+            if v not in ("H", "A") or e - s >= min_frames:
+                continue
+            prev = runs[i - 1][0] if i > 0 else None
+            nxt = runs[i + 1][0] if i + 1 < len(runs) else None
+            if prev in ("H", "A") and nxt in ("H", "A"):
+                target = prev if prev == nxt else None
+            elif prev in ("H", "A"):
+                target = prev
+            elif nxt in ("H", "A"):
+                target = nxt
+            else:
+                target = None
+            if target is not None and target != v:
+                lab[s:e] = target
+                changed = True
+        if not changed:
+            break
+    return lab
 
 
 def transition_logs():

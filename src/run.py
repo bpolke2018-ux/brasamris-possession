@@ -18,19 +18,42 @@ from games import GAME, half_video_blocks
 OUT = os.path.join(atd.ROOT, "submissions", "v3.csv")
 
 
-def set_piece_mask(n):
-    mask = np.zeros(n, bool)
+TEAM_TAG = {"barcelona": 1.0, "atletic club": -1.0}     # +1 home (H), -1 away (A)
+
+
+def set_piece_evidence(n, cfg=model.CONFIG):
+    """(dead_mask, team_sign) from Smart Tagging SET PIECES windows.
+
+    Aggregate diagnostics (src/setpiece_report.py) show the restart sits near the START of each
+    fixed 35 s window: predicted D share is ~0.6 in the 10 s before it and ~0.1 from 5 s after.
+    dead_mask: "full" = whole window (v1-v3); "start" = from 10 s before to 3 s after the tag start.
+    team_sign: +1/-1 for the tagged restarting team, over the first `sp_team_s` seconds after the
+    tag start (corners, goal kicks, free kicks carry a Team; throw-ins and kickoffs do not).
+    """
+    fps = 25
+    dead = np.zeros(n, bool)
+    team = np.zeros(n, np.float64)
     for e in tagging.load():
-        if (e["code"] or "").strip().lower() == "set pieces":
-            mask[max(e["start_frame"], 0):max(e["end_frame"], 0)] = True
-    return mask
+        if (e["code"] or "").strip().lower() != "set pieces":
+            continue
+        s, end = max(e["start_frame"], 0), max(e["end_frame"], 0)
+        if cfg["sp_dead_window"] == "start":
+            dead[max(s - 10 * fps, 0):s + 3 * fps] = True
+        else:
+            dead[s:end] = True
+        sign = TEAM_TAG.get((e["tags"].get("Team") or "").strip().lower(), 0.0)
+        if sign and cfg["sp_team_s"] > 0:
+            team[s:s + int(cfg["sp_team_s"] * fps)] = sign
+    return dead, team
 
 
 def decode(E, n):
     labels = np.full(n, "X", dtype="<U1")      # ungraded frames: never scored
     logT = model.transition_logs()
     for _, first, last in half_video_blocks(GAME):
-        labels[first:last + 1] = model.LABELS[model.viterbi(E[first:last + 1], logT)]
+        seg = model.LABELS[model.viterbi(E[first:last + 1], logT)]
+        labels[first:last + 1] = model.enforce_min_possession(
+            seg, int(model.CONFIG["min_possession_s"] * features.FPS))
     return labels
 
 
@@ -74,17 +97,21 @@ def main():
         key, value = item.split("=", 1)
         if key not in model.CONFIG:
             raise KeyError("unknown option {!r}; have {}".format(key, sorted(model.CONFIG)))
-        model.CONFIG[key] = ast.literal_eval(value)
+        try:
+            model.CONFIG[key] = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            model.CONFIG[key] = value          # bare string, e.g. sp_dead_window=start
 
     a = atd.load()
     f = features.compute(a)
     n = len(a["bx"])
     team_llr = model.team_evidence(f, model.CONFIG)
-    dead = model.dead_evidence(f, set_piece_mask(n))
+    sp_dead, sp_team = set_piece_evidence(n)
+    dead = model.dead_evidence(f, sp_dead)
 
-    extra = 0.0
+    extra = model.CONFIG["sp_team_nats"] * sp_team
     if model.CONFIG["context"]:
-        extra = model.CONFIG["context_scale"] * context.context_llr(a, f)
+        extra = extra + model.CONFIG["context_scale"] * context.context_llr(a, f)
 
     k_team = args.k_team if args.k_team is not None else calibrate(team_llr, dead, n, extra)
     labels = decode(model.emissions(team_llr, dead, k_team, extra), n)
