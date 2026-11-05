@@ -66,5 +66,7 @@ def compute(a):
         mean_speed=nan_smooth(mean_speed, FPS // 2),     # 1 s window
         ball_speed=ball_speed,
         ball_seen=seen,
+        bx=bx,
+        by=by,
         ball_out=ball_out,
     )

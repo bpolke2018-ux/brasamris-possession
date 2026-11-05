@@ -58,3 +58,13 @@ X abstention reasoning: under spellF1 an X is filled with the previous label, so
 | e9_fixk_min2 | 0.726 | 0.121 | 3.880 | 248 | 3.268 | 11.260 | 41.000 | 0.008 | 0.309 | 0.000 |
 | e9_fixk_min3 | 0.733 | 0.121 | 3.880 | 219 | 3.952 | 14.400 | 42.904 | 0.014 | 0.309 | 0.000 |
 
+## round 5: ball lost next to a line -> dead ball — 2026-11-04
+
+While the ball is missing and was last seen < 2 m from a line within 20 s: +0.03 / +0.10 nats/frame for D. phase_agree 0.717/0.718 vs 0.720 -> DROPPED (off by default). Caveat: phase_agree only scores H/A frames, so the proxy is nearly blind to dead-ball changes; a label-free D check is needed before more D work.
+
+| run | phase_agree | restart_within_2s | restart_median_offset_s | possessions | dur_p10 | dur_p50 | dur_p90 | short_lt2s | share_D | share_X |
+|---|---|---|---|---|---|---|---|---|---|---|
+| v3 | 0.720 | 0.121 | 3.880 | 350 | 1.280 | 7.220 | 32.456 | 0.171 | 0.309 | 0.000 |
+| e10_line3 | 0.717 | 0.121 | 3.880 | 345 | 1.320 | 7.280 | 32.696 | 0.165 | 0.319 | 0.000 |
+| e10_line10 | 0.718 | 0.121 | 3.620 | 339 | 1.400 | 7.280 | 32.472 | 0.162 | 0.331 | 0.000 |
+

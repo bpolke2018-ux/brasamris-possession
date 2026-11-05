@@ -70,7 +70,30 @@ CONFIG = {
     # the suggested proxy for control. Live segments shorter than this are given back to the
     # surrounding live team (or merged with the following one after a stoppage). 0 = off.
     "min_possession_s": 0.0,
+    # Ball lost next to a line: while the ball is missing, if it was last seen within
+    # line_dist_m of a touchline or goal line (and no more than line_max_age_s ago), add
+    # line_nats per frame of D evidence. Football reasoning: balls leave play over a line, and the
+    # tracker often loses them exactly there (out of the camera's pitch area). 0 = off.
+    "line_nats": 0.0,
+    "line_dist_m": 2.0,
+    "line_max_age_s": 20.0,
 }
+
+
+def ball_lost_near_line(f, cfg=CONFIG):
+    """Bool per frame: ball missing, last seen within line_dist_m of a line, recently."""
+    from src.features import PITCH
+    L, W = PITCH
+    bx, by, seen = f["bx"], f["by"], f["ball_seen"]
+    n = len(seen)
+    idx = np.where(seen, np.arange(n), -1)
+    last = np.maximum.accumulate(idx)
+    ok = (~seen) & (last >= 0)
+    lx = np.where(last >= 0, bx[np.maximum(last, 0)], np.nan)
+    ly = np.where(last >= 0, by[np.maximum(last, 0)], np.nan)
+    dist = np.fmin(np.fmin(np.abs(lx), np.abs(L - lx)), np.fmin(np.abs(ly), np.abs(W - ly)))
+    age = np.arange(n) - last
+    return ok & (np.nan_to_num(dist, nan=99) < cfg["line_dist_m"]) & (age < cfg["line_max_age_s"] * FPS)
 
 
 def enforce_min_possession(seg_labels, min_frames):
@@ -161,6 +184,8 @@ def dead_evidence(f, set_piece_mask):
     out += K_BALL_OUT * f["ball_out"]
     out -= K_BALL_FAST * (seen_in & (np.nan_to_num(f["ball_speed"]) > BALL_FAST))
     out += K_SET_PIECE * set_piece_mask
+    if CONFIG["line_nats"]:
+        out += CONFIG["line_nats"] * ball_lost_near_line(f)
     return out
 
 

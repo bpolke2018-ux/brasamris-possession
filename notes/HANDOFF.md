@@ -66,3 +66,8 @@ or drop it.
 - No hand labels.
 - Nothing was tuned on the public ground truth.
 - Commits are local only; nothing has been pushed.
+
+## Update 2026-11-05 (2)
+
+e10 (ball lost next to a line as D evidence) was dropped: no gain. The proxy cannot judge D changes, because phase_agree only scores H/A frames. Next step: build a label-free dead-ball check before any more D work (for example, agreement with stoppage signs that the model does not use), then try an HSMM.
+
