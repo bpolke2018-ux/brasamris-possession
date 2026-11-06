@@ -98,7 +98,8 @@ it so that the decoded match's own mean possession length equals the 12.5 s prio
 | Smart Tagging, `SET PIECES` | weak dead-ball evidence |
 | Smart Tagging, phase codes (Build Up, Progression, Defending in …) | **held out** — never fed to the model; used only as an independent development check (§4) |
 | Smart Tagging, set-piece `Team` tag | v5: constrains which team the restart goes to (§1.3). An earlier per-frame version had no effect |
-| Homography, broadcast video and ATD, tactical video | not used: the ATD is already in pitch coordinates, and the broadcast feed is not frame-aligned |
+| Broadcast ATD | aligned to the tactical timeline by code (`src/broadcast.py`: FFT cross-correlation of ball tracks in 10 s chunks; balls agree within 0.6 m after alignment). Borrowing its ball fills only 3.7% of the frames where the tactical ball is missing, and lowered our checks, so it is not used in the submission |
+| Homography, broadcast and tactical video | not used: the ATD is already in pitch coordinates |
 
 ## 3. Missing and noisy tracking
 
@@ -150,6 +151,7 @@ the structure check is essential.
 | X where the posterior is < 1/3 | — | 340 | no (§6) |
 | **tagged team constrains the restart (v5)** | **0.735** | 338 | yes; 0.525 → 0.580 in the 20 s after tagged restarts |
 | **throw-in hold = dead (v6)** | 0.734 | 337 | yes; restart within 1 s of the ball re-entering: 13% → 47% (15 throw-ins) |
+| ball filled from aligned broadcast tracking | 0.726 | 339 | no |
 
 ## 6. Possession rules implemented
 
@@ -180,7 +182,7 @@ the structure check is essential.
 - **Long ball gaps:** the shape context helps but is slow (31 s autocorrelation), so turnovers
   inside long gaps are found late.
 - **Next:** a duration-aware model (HSMM); detecting the regroup-then-burst pattern of a restart;
-  ball interpolation from the broadcast ATD once the feeds are aligned by code.
+  the broadcast feed is now aligned by code, but its ball adds little where we need it (§2).
 
 ## 8. Reproduction
 

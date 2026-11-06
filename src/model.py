@@ -115,6 +115,10 @@ CONFIG = {
     # restarts when it comes back in. hold_nats per frame for D, and ball control is neutral
     # there (like a placed ball). Aggregate: v5 calls only 35% of these frames D. 0 = off.
     "hold_nats": 0.15,        # v6 (same weight as K_BALL_OUT)
+    # Borrow the broadcast tracking's ball where the tactical ball is missing (src/broadcast.py,
+    # aligned by code). "off", "balls" (ball-aligned chunks only) or "players" (+ player-aligned
+    # 2 s pieces, less reliable).
+    "broadcast_ball": "off",
 }
 
 

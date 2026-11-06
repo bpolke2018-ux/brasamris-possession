@@ -17,7 +17,7 @@ from games import GAME, half_video_blocks
 
 
 def posteriors_all():
-    a = atd.load()
+    a = run.load_tracking()
     f = features.compute(a)
     n = len(a["bx"])
     team_llr = model.team_evidence(f, model.CONFIG)

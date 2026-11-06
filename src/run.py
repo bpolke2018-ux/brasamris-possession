@@ -67,6 +67,19 @@ def restart_penalty(n, cfg=model.CONFIG):
     return pen
 
 
+def load_tracking(cfg=model.CONFIG):
+    """Tactical ATD arrays, with the ball filled from the aligned broadcast if configured."""
+    a = atd.load()
+    if cfg["broadcast_ball"] != "off":
+        from src import broadcast
+        mbx, mby, _ = broadcast.mapped_ball(use_players=cfg["broadcast_ball"] == "players")
+        fill = ~np.isfinite(a["bx"]) & np.isfinite(mbx)
+        a = dict(a)
+        a["bx"] = np.where(fill, mbx, a["bx"]).astype(np.float32)
+        a["by"] = np.where(fill, mby, a["by"]).astype(np.float32)
+    return a
+
+
 def decode(E, n, abstain=False):
     labels = np.full(n, "X", dtype="<U1")      # ungraded frames: never scored
     logT = model.transition_logs()
@@ -138,7 +151,7 @@ def main():
             raise KeyError("unknown option {!r}; have {} or a model.py CONSTANT".format(
                 key, sorted(model.CONFIG)))
 
-    a = atd.load()
+    a = load_tracking()
     f = features.compute(a)
     n = len(a["bx"])
     team_llr = model.team_evidence(f, model.CONFIG)

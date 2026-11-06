@@ -44,9 +44,9 @@ def _group(text):
     return vals
 
 
-def parse(game=GAME, data_dir=None):
-    meta_path, raw_path = require(["atd_meta", "atd_raw"], game, data_dir)
-    n = source_frames("tactical", game)
+def parse(game=GAME, data_dir=None, source="tactical"):
+    meta_path, raw_path = require(["atd_meta", "atd_raw"], game, data_dir, source)
+    n = source_frames(source, game)
     length, width = GAMES[game]["pitch"]
     team = team_of_each_track(meta_path)
     k = len(team)
@@ -80,13 +80,14 @@ def parse(game=GAME, data_dir=None):
     return dict(px=px, py=py, ps=ps, team=team, bx=bx, by=by, bs=bs)
 
 
-def load(game=GAME, data_dir=None, refresh=False):
-    """Cached arrays; parses on first use (a minute or two)."""
-    path = os.path.join(CACHE_DIR, "{}_tactical_atd.npz".format(game))
+def load(game=GAME, data_dir=None, refresh=False, source="tactical"):
+    """Cached arrays; parses on first use (a minute or two). source: "tactical" or "broadcast"
+    (the broadcast recording runs on its own clock; see src/broadcast.py)."""
+    path = os.path.join(CACHE_DIR, "{}_{}_atd.npz".format(game, source))
     if not refresh and os.path.isfile(path):
         with np.load(path) as z:
             return {key: z[key] for key in z.files}
-    arrays = parse(game, data_dir)
+    arrays = parse(game, data_dir, source)
     os.makedirs(CACHE_DIR, exist_ok=True)
     np.savez(path, **arrays)
     return arrays

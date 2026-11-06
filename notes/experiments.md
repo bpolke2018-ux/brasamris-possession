@@ -121,3 +121,14 @@ e15: throw_hold (ball seen beyond a touchline, < 3 m/s, player within 2.5 m) add
 | **e15a = v6** (hold 0.15) | 0.734 | 0.580 | 337 | 0.157 | 0.335 | 0.513 | 0.467 | -0.20 | 0.294 |
 | e15b (hold 0.4) | 0.734 | 0.577 | 338 | 0.154 | 0.336 | 0.685 | 0.600 | -0.16 | 0.294 |
 
+## round 10: ball from the broadcast tracking, aligned by code — 2026-11-05
+
+src/broadcast.py aligns the unsynchronised broadcast ATD to the tactical timeline with no labels: 10 s broadcast chunks, FFT cross-correlation of the masked ball tracks over all offsets; accept if the median ball distance at the best offset is < 1.5 m and the runner-up (> 2 s away) is 4x worse. 186 of 414 chunks with enough ball are accepted; offsets are 4013-4018 frames (first half) and ~26921 (second half); 69% of consecutive accepted chunks share the offset (cuts and replays in between). Where both feeds see the ball after mapping, they agree within 0.58 m (median; p90 1.9 m; 3.7% > 3 m). But only 3.7% of the tactical missing-ball graded frames get filled: the broadcast mostly sees the ball when the tactical camera does too. A second, player-based pass (2 s pieces, nearest-neighbour fit of broadcast players to tactical players at the neighbouring chunks' offsets, sharp-minimum test) maps more frames (fills 9.6%), but its balls disagree with the tactical ball by > 3 m on 31% of shared frames, so it is unreliable.
+e16a (fill from ball-aligned chunks) and e16b (+ player pieces): both lower phase agreement and post-restart agreement. DROPPED (broadcast_ball = "off"; the alignment code is kept). Restart checks unchanged (they read the tactical ball).
+
+| run | phase_agree | phase_agree_20s_after_tagged_restart | possessions | short_lt2s | share_D |
+|---|---|---|---|---|---|
+| v6 | 0.734 | 0.580 | 337 | 0.157 | 0.335 |
+| e16a_bc_balls | 0.726 | 0.569 | 339 | 0.153 | 0.332 |
+| e16b_bc_players | 0.713 | 0.566 | 343 | 0.143 | 0.325 |
+
