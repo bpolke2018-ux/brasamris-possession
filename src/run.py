@@ -1,6 +1,6 @@
 """Build a submission from the provided data. Deterministic: no randomness anywhere.
 
-    python -m src.run                                   # -> submissions/v5.csv
+    python -m src.run                                   # -> submissions/v6.csv
     python -m src.run --set persist_frames=10 --out cache/exp.csv
 
 v1 (committed earlier) is reproduced by: --k-team 1.0 --set max_control_ball_speed=None
@@ -15,7 +15,7 @@ import numpy as np
 from src import atd, context, features, model, tagging
 from games import GAME, half_video_blocks
 
-OUT = os.path.join(atd.ROOT, "submissions", "v5.csv")
+OUT = os.path.join(atd.ROOT, "submissions", "v6.csv")
 
 
 TEAM_TAG = {"barcelona": 1.0, "atletic club": -1.0}     # +1 home (H), -1 away (A)
@@ -141,7 +141,10 @@ def main():
     if model.CONFIG["context"]:
         extra = extra + model.CONFIG["context_scale"] * context.context_llr(a, f)
 
-    still = model.ball_still(f).astype(np.float64)
+    still = model.ball_still(f)
+    if model.CONFIG["hold_nats"]:
+        still = still | model.throw_hold(f)
+    still = still.astype(np.float64)
     k_team = args.k_team if args.k_team is not None else calibrate(team_llr, dead, n, extra,
                                                                     still=still)
     labels = decode(model.emissions(team_llr, dead, k_team, extra, still), n, abstain=True)

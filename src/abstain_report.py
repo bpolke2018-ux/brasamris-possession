@@ -26,7 +26,10 @@ def posteriors_all():
     extra = model.CONFIG["sp_team_nats"] * sp_team
     if model.CONFIG["context"]:
         extra = extra + model.CONFIG["context_scale"] * context.context_llr(a, f)
-    still = model.ball_still(f).astype(np.float64)
+    still = model.ball_still(f)
+    if model.CONFIG["hold_nats"]:
+        still = still | model.throw_hold(f)
+    still = still.astype(np.float64)
     k = run.calibrate(team_llr, dead, n, extra, still=still)
     E = model.emissions(team_llr, dead, k, extra, still)
     post = np.full((n, 3), np.nan)

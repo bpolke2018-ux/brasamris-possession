@@ -95,13 +95,51 @@ def report(labels, kicks):
     return rows
 
 
+def throw_reentries(f, graded):
+    """[(hold_start, reentry_frame)]: ball held beyond a touchline (model.throw_hold, episodes
+    merged over 3 s gaps, >= 0.2 s), then the first frame it is seen back inside the pitch
+    within 10 s. Re-entry is pure geometry: play restarts when the throw brings the ball in."""
+    from src import model
+    L, W = features.PITCH
+    m = model.throw_hold(f) & graded
+    e = np.diff(np.concatenate(([0], m.astype(np.int8), [0])))
+    eps = []
+    for s, t in zip(np.flatnonzero(e == 1), np.flatnonzero(e == -1)):
+        if eps and s - eps[-1][1] < 3 * FPS:
+            eps[-1][1] = t
+        else:
+            eps.append([s, t])
+    with np.errstate(invalid="ignore"):
+        inside = f["ball_seen"] & (f["by"] > 0) & (f["by"] < W) & (f["bx"] > 0) & (f["bx"] < L)
+    out = []
+    for s, t in eps:
+        if t - s < 5:
+            continue
+        nxt = np.flatnonzero(inside[t:t + 10 * FPS])
+        if len(nxt):
+            out.append((s, t + int(nxt[0])))
+    return out
+
+
+def throw_report(labels, eps):
+    switches = d_to_live(labels)
+    offs = np.array([(switches[np.argmin(np.abs(switches - r))] - r) / FPS for _, r in eps])
+    d_hold = np.mean([np.mean(labels[s:r] == "D") for s, r in eps])
+    return {"n_throw": len(eps), "throw_d_during_hold": round(float(d_hold), 3),
+            "throw_restart_1s": round(float(np.mean(np.abs(offs) <= 1)), 3),
+            "throw_off_med": round(float(np.median(offs)), 2)}
+
+
 def main(paths):
     a = atd.load()
     f = features.compute(a)
     graded = proxy_eval.graded_mask(len(a["bx"]))
     kicks = placed_ball_kicks(f, graded)
+    throws = throw_reentries(f, graded)
     for p in paths:
-        r = report(proxy_eval.read(p), kicks)
+        lab = proxy_eval.fill_x(proxy_eval.read(p))
+        r = report(lab, kicks)
+        r.update(throw_report(lab, throws))
         print(p, {k: (round(v, 3) if isinstance(v, float) else v) for k, v in r.items()})
 
 

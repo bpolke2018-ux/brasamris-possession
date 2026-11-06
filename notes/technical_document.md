@@ -34,6 +34,7 @@ All quantities are in metres (pitch 105.3 × 68.0 m, from `games.py`).
 | ball fast in pitch | against D | ball moving faster than 3 m/s inside the pitch means someone kicked it |
 | set-piece window | D | inside a Smart Tagging `SET PIECES` interval |
 | placed ball | D | ball seen inside the pitch and below 1.5 m/s for a full second (±0.5 s). On these frames ball control is **neutral** between live and D |
+| throw-in hold | D | ball seen beyond a touchline, below 3 m/s, a player within 2.5 m (the thrower). Ball control is neutral here too |
 
 **The in-flight gate.** A ball travelling faster than 8 m/s is a pass, clearance or shot. The
 player nearest to it is not controlling it; they are usually an opponent it is passing. Removing
@@ -120,6 +121,8 @@ The public 5 minutes were **not** used to choose anything. Instead, `src/proxy_e
 - **Placed-ball kicks** (`src/restart_report.py`): 51 moments where the ball sits still for at
   least 1.5 s and is then struck at more than 6 m/s. We ask whether our dead ball ends at the kick.
   This shares the stillness signal with the v4 evidence, so it is a sanity check, not a score.
+  The same script times throw-ins: from a ball held beyond a touchline to the first frame it is
+  seen back inside the pitch (geometry only), against our D→live switch.
 - **Phase agreement after tagged restarts** (`src/restart_team_report.py`): phase agreement over
   the 20 s after each team-tagged set piece.
 
@@ -146,6 +149,7 @@ the structure check is essential.
 | **placed ball = dead, control neutral on still frames (v4)** | **0.727** | 340 | yes |
 | X where the posterior is < 1/3 | — | 340 | no (§6) |
 | **tagged team constrains the restart (v5)** | **0.735** | 338 | yes; 0.525 → 0.580 in the 20 s after tagged restarts |
+| **throw-in hold = dead (v6)** | 0.734 | 337 | yes; restart within 1 s of the ball re-entering: 13% → 47% (15 throw-ins) |
 
 ## 6. Possession rules implemented
 
@@ -183,11 +187,11 @@ the structure check is essential.
 ```
 pip install -r requirements.txt                    # numpy, pandas
 # data: ./data, ../more-than-a-hack-2027/data, or MTAH_DATA_DIR
-python -m src.run                                  # -> submissions/v5.csv (deterministic)
-python evaluation/validate_submission.py submissions/v5.csv
-python -m src.proxy_eval submissions/v5.csv        # development check, no ground truth
-python -m src.restart_report submissions/v5.csv    # placed-ball restart check
-python -m src.restart_team_report submissions/v5.csv
+python -m src.run                                  # -> submissions/v6.csv (deterministic)
+python evaluation/validate_submission.py submissions/v6.csv
+python -m src.proxy_eval submissions/v6.csv        # development check, no ground truth
+python -m src.restart_report submissions/v6.csv    # placed-ball restart check
+python -m src.restart_team_report submissions/v6.csv
 ```
 
 The first run parses the tracking into `cache/` (1–2 minutes). Later runs take about a minute. The

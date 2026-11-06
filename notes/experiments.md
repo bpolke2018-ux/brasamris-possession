@@ -110,3 +110,14 @@ Aggregate prior check first (v4 team before the stoppage vs tagged restarter): c
 | e14b (pen 20) | 0.734 | 0.579 | 0.745 | 340 | 0.162 | 0.332 |
 | e14c (pen 20, -10..+10 s) | 0.732 | 0.565 | 0.720 | 340 | 0.165 | 0.333 |
 
+## round 9: throw-ins — 2026-11-05
+
+Throw-in team (not built): the tracker sees the ball held just beyond a touchline with a player within 2.5 m in 17 episodes (~9 of the 26 tagged throw-ins); v5 already gives the first 2 s of live play after them to the holder's team 93% of the time (1/17 wrong). Nothing to gain -> not built. But v5 called only ~30-35% of the hold frames D, although a ball beyond the line is out of play.
+e15: throw_hold (ball seen beyond a touchline, < 3 m/s, player within 2.5 m) adds hold_nats D evidence and makes ball control neutral there (like a placed ball). New label-free check in src/restart_report.py: the D->live switch vs the first frame the ball is seen back inside the pitch (re-entry: pure geometry) after each hold, 15 episodes. KEPT e15a (0.15 nats, the same weight as a ball > 1 m out; 0.4 was a little better on 15 events, 9 vs 7 hits, but stronger than the existing ball-out weight and riskier for balls dribbled along the line) as v6.
+
+| run | phase_agree | phase_agree_20s_after_tagged_restart | possessions | short_lt2s | share_D | throw_d_during_hold | throw_restart_1s | throw_off_med_s | pbk_restart_1s |
+|---|---|---|---|---|---|---|---|---|---|
+| v5 | 0.735 | 0.580 | 338 | 0.163 | 0.332 | 0.301 | 0.133 | -1.24 | 0.275 |
+| **e15a = v6** (hold 0.15) | 0.734 | 0.580 | 337 | 0.157 | 0.335 | 0.513 | 0.467 | -0.20 | 0.294 |
+| e15b (hold 0.4) | 0.734 | 0.577 | 338 | 0.154 | 0.336 | 0.685 | 0.600 | -0.16 | 0.294 |
+

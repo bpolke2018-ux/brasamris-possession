@@ -110,6 +110,11 @@ CONFIG = {
     "sp_restart_pen": 5.0,    # v5
     "sp_restart_before_s": 10.0,
     "sp_restart_after_s": 20.0,
+    # Throw-in hold: ball seen beyond a touchline (any amount), slower than 3 m/s, a player
+    # within 2.5 m -- the thrower holding it. The ball is out of play by definition; play
+    # restarts when it comes back in. hold_nats per frame for D, and ball control is neutral
+    # there (like a placed ball). Aggregate: v5 calls only 35% of these frames D. 0 = off.
+    "hold_nats": 0.15,        # v6 (same weight as K_BALL_OUT)
 }
 
 
@@ -221,7 +226,20 @@ def dead_evidence(f, set_piece_mask):
         out += CONFIG["line_nats"] * ball_lost_near_line(f)
     if CONFIG["still_nats"]:
         out += CONFIG["still_nats"] * ball_still(f)
+    if CONFIG["hold_nats"]:
+        out += CONFIG["hold_nats"] * throw_hold(f)
     return out
+
+
+def throw_hold(f):
+    """Bool per frame: ball held just beyond a touchline by a nearby player."""
+    from src.features import PITCH
+    L, W = PITCH
+    bx, by = f["bx"], f["by"]
+    with np.errstate(invalid="ignore"):
+        beyond = f["ball_seen"] & ((by < 0) | (by > W)) & (bx > 0) & (bx < L)
+    dmin = np.nan_to_num(np.fmin(f["d_home"], f["d_away"]), nan=99.0)
+    return beyond & (np.nan_to_num(f["ball_speed"], nan=99) < 3.0) & (dmin < 2.5)
 
 
 def ball_still(f, cfg=CONFIG):

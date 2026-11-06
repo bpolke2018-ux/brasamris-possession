@@ -1,6 +1,6 @@
 # Handoff (2026-11-03, updated 2026-11-05 evening)
 
-## Latest: v5 → `submissions/v5.csv` (commit after 8498175)
+## Latest: v6 → `submissions/v6.csv`
 
 - v4 (round 6): a still (placed) ball counts as dead-ball evidence, and ball control is neutral
   for live vs D on still frames. Placed-ball restarts went from 6.4 s early to 0.5 s early.
@@ -8,11 +8,12 @@
   frames are right about 64% of the time, far above the ~1/3 break-even.
 - v5 (round 8): the set-piece Team tag constrains the restart (D -> other team costs 5 nats,
   -10..+20 s). Phase agreement in the 20 s after tagged restarts went 0.525 -> 0.580; overall 0.735.
+- v6 (round 9): a ball held beyond a touchline (the thrower) counts as dead, 0.15 nats. Throw-in
+  restart within 1 s of re-entry: 13% -> 47% (15 episodes). A throw-in team rule was not needed (v5 already 93%).
 - New checks: `src/restart_report.py`, `src/restart_team_report.py`, `src/abstain_report.py`.
 - Brandon is learning alongside: report before and after each experiment in plain language
   (what, football reason, how measured, file), under ~8 lines.
-- Next ideas: throw-in restarts (ball out at a touchline, then reappears near the same spot);
-  kickoff detection (ball still at the centre spot, both teams in their own halves); HSMM.
+- Next ideas: kickoff detection (ball still at the centre spot, both teams in their own halves); HSMM.
 
 
 ## Current best: v3 → `submissions/v3.csv`
