@@ -145,3 +145,7 @@ Each prior nudged on its own, K_TEAM re-calibrated each time (to POSSESSION_S, a
 
 Reading: the dead-ball duration and stoppage share hardly matter. Two priors carry the result: POSSESSION_S sets the possession count through calibration (277-423), and WALK_SPEED sets the dead-ball share (27-38%). Neither can be validated without labels, and phase_agree is biased (it rises with fewer, longer possessions and with more D, since it only scores live frames). Both stay at the values fixed a priori in v1 (2026-11-02), before any of this. They are NOT to be tuned on the public window. Disclosure: the public GT meta JSON, which states its window's label counts and mean possession, was printed once on 2026-11-05 while building inspect_window. That is one more reason to leave these two priors exactly where they were set beforehand.
 
+## round 12 (parked): kickoff detection — 2026-11-05
+
+Feasibility only: frames with >= 95% of each team's tracked players (>= 8 per team) in their own half, attack direction from src/context.py, merged into episodes >= 1 s: zero episodes, with or without the ball near the centre spot, while there are 5 graded kickoff tags. The shape test is probably too strict for automatic tracking (a stray track or an identity switch on the wrong side), or the half convention needs checking. Parked: other-game validation has priority (see notes/other_games.md).
+
