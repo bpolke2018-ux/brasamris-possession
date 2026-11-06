@@ -68,3 +68,19 @@ While the ball is missing and was last seen < 2 m from a line within 20 s: +0.03
 | e10_line3 | 0.717 | 0.121 | 3.880 | 345 | 1.320 | 7.280 | 32.696 | 0.165 | 0.319 | 0.000 |
 | e10_line10 | 0.718 | 0.121 | 3.620 | 339 | 1.400 | 7.280 | 32.472 | 0.162 | 0.331 | 0.000 |
 
+## round 6: placed ball (still ball) as dead-ball evidence — 2026-11-05
+
+New label-free check, src/restart_report.py: a *placed-ball kick* (PBK) is the ball seen and nearly still (< 1.5 m/s) for >= 1.5 s, then struck (> 6 m/s within 1 s). There are 51 on graded frames; 11 are within 15 s of a SET PIECES tag start (the others are probably untagged free kicks plus some open-play pauses). The model never used ball stillness before. Finding: in v3 the ball is seen on only 5% of predicted-D frames, so v3's D is in effect "ball missing", and v3 calls placed balls live (D share 0.06 in the 2 s before a PBK; nearest D->live switch a median 6.4 s *before* the kick). Cause: ball-control evidence (a player next to the ball) also votes for live over D, and a placed ball always has a player next to it.
+e11: d_team_share=1 on all frames (control evidence neutral between live and D) -> D 42%, 294 possessions, and D lingers after kicks (live_after 0.80). Too blunt. e12: neutral ONLY on still-ball frames (3.9% of graded) plus still_nats D evidence. KEPT e12a as v4: PBK restart within 1 s 0.06 -> 0.28, median offset -6.4 -> -0.5 s, live 1-3 s after the kick unchanged (0.99), phase_agree 0.727, structure unchanged (340 possessions). Caveats: the PBK check shares the stillness signal with the change, so it is partly circular; the set-piece tag alignment fell from 7/58 to 4/58 (those tags are loose 35 s windows).
+
+| run | phase_agree | restart_within_2s | restart_median_offset_s | possessions | dur_p10 | dur_p50 | dur_p90 | short_lt2s | share_D | share_X | pbk_restart_1s | pbk_d_before | pbk_live_after |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| v3 | 0.720 | 0.121 | 3.880 | 350 | 1.280 | 7.220 | 32.456 | 0.171 | 0.309 | 0.000 | 0.059 | 0.059 | 0.993 |
+| e11a_dneutral (all) | 0.731 | 0.052 | 6.100 | 294 | 1.532 | 7.600 | 31.652 | 0.133 | 0.420 | 0.000 | 0.235 | 0.441 | 0.805 |
+| e11b_still only | 0.722 | 0.121 | 3.880 | 349 | 1.280 | 7.200 | 32.472 | 0.175 | 0.311 | 0.000 | 0.059 | 0.059 | 0.993 |
+| e11c_both (all) | 0.739 | 0.052 | 6.100 | 279 | 1.696 | 7.520 | 31.400 | 0.122 | 0.446 | 0.000 | 0.255 | 0.564 | 0.696 |
+| **e12a = v4** (neutral on still + still 0.1) | 0.727 | 0.069 | 4.300 | 340 | 1.320 | 6.820 | 32.472 | 0.168 | 0.332 | 0.000 | 0.275 | 0.227 | 0.993 |
+| e12b (still 0.05) | 0.725 | 0.069 | 4.300 | 345 | 1.296 | 6.680 | 32.632 | 0.174 | 0.325 | 0.000 | 0.196 | 0.168 | 0.993 |
+| e12c (share 0.5 all + still) | 0.721 | 0.103 | 4.300 | 341 | 1.320 | 7.320 | 32.440 | 0.161 | 0.330 | 0.000 | 0.137 | 0.133 | 0.993 |
+| e12d (neutral on still, no still nats) | 0.721 | 0.121 | 4.140 | 348 | 1.280 | 7.140 | 32.488 | 0.172 | 0.313 | 0.000 | 0.078 | 0.074 | 0.993 |
+

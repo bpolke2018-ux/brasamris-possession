@@ -77,6 +77,22 @@ CONFIG = {
     "line_nats": 0.0,
     "line_dist_m": 2.0,
     "line_max_age_s": 20.0,
+    # Ball-control evidence says WHICH team, not WHETHER the ball is live: at a free kick or goal
+    # kick a player stands next to the placed ball. d_team_share in [0, 1] gives the D state
+    # that share of the best live state's control score (|team llr| / 2). 0 = v1-v3 (control
+    # evidence also votes for live), 1 = control evidence is neutral between live and D.
+    "d_team_share": 1.0,      # v4
+    # Where d_team_share applies: "all" frames, or only "still" frames (ball_still below): a
+    # dribbled ball next to a player is live play; a motionless one next to a player may be placed.
+    "d_team_where": "still",  # v4
+    # Placed ball: ball seen inside the pitch and nearly motionless (every smoothed speed within
+    # +/- still_half_s below still_speed). In open play the ball is almost never still for a
+    # second; at a restart it is placed and waits for the kick. still_nats per frame for D.
+    # Aggregate check (src/restart_report.py): v3 calls 95% of such stretches live, and 42% of
+    # them sit inside a SET PIECES window. 0 = off (v1-v3).
+    "still_nats": 0.1,        # v4
+    "still_speed": 1.5,
+    "still_half_s": 0.5,
 }
 
 
@@ -186,10 +202,23 @@ def dead_evidence(f, set_piece_mask):
     out += K_SET_PIECE * set_piece_mask
     if CONFIG["line_nats"]:
         out += CONFIG["line_nats"] * ball_lost_near_line(f)
+    if CONFIG["still_nats"]:
+        out += CONFIG["still_nats"] * ball_still(f)
     return out
 
 
-def emissions(team_llr, dead, k_team=None, extra_llr=0.0):
+def ball_still(f, cfg=CONFIG):
+    """Bool per frame: ball seen in the pitch and below still_speed over +/- still_half_s."""
+    from numpy.lib.stride_tricks import sliding_window_view
+    h = int(cfg["still_half_s"] * FPS)
+    ok = f["ball_seen"] & ~f["ball_out"] & (np.nan_to_num(f["ball_speed"], nan=99) < cfg["still_speed"])
+    padded = np.concatenate((np.zeros(h, bool), ok, np.zeros(h, bool)))
+    return sliding_window_view(padded, 2 * h + 1).all(axis=1)
+
+
+
+
+def emissions(team_llr, dead, k_team=None, extra_llr=0.0, still=None):
     """(n, 3) log-scores. Only differences between states matter.
 
     team_llr is scaled by K_TEAM; extra_llr (e.g. shape context) is already in nats and is not.
@@ -199,7 +228,10 @@ def emissions(team_llr, dead, k_team=None, extra_llr=0.0):
     E = np.zeros((len(dead), 3), np.float64)
     E[:, H] = total / 2
     E[:, A] = -total / 2
-    E[:, D] = dead
+    share = CONFIG["d_team_share"]
+    if share and CONFIG["d_team_where"] == "still":
+        share = share * still
+    E[:, D] = dead + share * np.abs(total) / 2
     return E
 
 

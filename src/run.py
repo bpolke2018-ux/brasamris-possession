@@ -1,6 +1,6 @@
 """Build a submission from the provided data. Deterministic: no randomness anywhere.
 
-    python -m src.run                                   # -> submissions/v2.csv
+    python -m src.run                                   # -> submissions/v4.csv
     python -m src.run --set persist_frames=10 --out cache/exp.csv
 
 v1 (committed earlier) is reproduced by: --k-team 1.0 --set max_control_ball_speed=None
@@ -15,7 +15,7 @@ import numpy as np
 from src import atd, context, features, model, tagging
 from games import GAME, half_video_blocks
 
-OUT = os.path.join(atd.ROOT, "submissions", "v3.csv")
+OUT = os.path.join(atd.ROOT, "submissions", "v4.csv")
 
 
 TEAM_TAG = {"barcelona": 1.0, "atletic club": -1.0}     # +1 home (H), -1 away (A)
@@ -69,7 +69,7 @@ def possessions(labels):
     return len(lengths), (np.mean(lengths) / features.FPS if lengths else 0.0)
 
 
-def calibrate(team_llr, dead, n, extra=0.0, target_s=model.POSSESSION_S, steps=12):
+def calibrate(team_llr, dead, n, extra=0.0, target_s=model.POSSESSION_S, steps=12, still=None):
     """K_TEAM such that the decoded match's own mean possession length is target_s.
 
     Larger K_TEAM -> more evidence -> more, shorter possessions, so bisect in log space.
@@ -78,7 +78,7 @@ def calibrate(team_llr, dead, n, extra=0.0, target_s=model.POSSESSION_S, steps=1
     lo, hi = np.log(0.05), np.log(20.0)
     for _ in range(steps):
         mid = (lo + hi) / 2
-        _, mean_s = possessions(decode(model.emissions(team_llr, dead, np.exp(mid), extra), n))
+        _, mean_s = possessions(decode(model.emissions(team_llr, dead, np.exp(mid), extra, still), n))
         if mean_s > target_s:
             lo = mid
         else:
@@ -113,8 +113,10 @@ def main():
     if model.CONFIG["context"]:
         extra = extra + model.CONFIG["context_scale"] * context.context_llr(a, f)
 
-    k_team = args.k_team if args.k_team is not None else calibrate(team_llr, dead, n, extra)
-    labels = decode(model.emissions(team_llr, dead, k_team, extra), n)
+    still = model.ball_still(f).astype(np.float64)
+    k_team = args.k_team if args.k_team is not None else calibrate(team_llr, dead, n, extra,
+                                                                    still=still)
+    labels = decode(model.emissions(team_llr, dead, k_team, extra, still), n)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     with open(args.out, "w", newline="\n") as handle:
