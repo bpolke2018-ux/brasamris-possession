@@ -47,13 +47,20 @@ def set_piece_evidence(n, cfg=model.CONFIG):
     return dead, team
 
 
-def decode(E, n):
+def decode(E, n, abstain=False):
     labels = np.full(n, "X", dtype="<U1")      # ungraded frames: never scored
     logT = model.transition_logs()
     for _, first, last in half_video_blocks(GAME):
-        seg = model.LABELS[model.viterbi(E[first:last + 1], logT)]
-        labels[first:last + 1] = model.enforce_min_possession(
-            seg, int(model.CONFIG["min_possession_s"] * features.FPS))
+        path = model.viterbi(E[first:last + 1], logT)
+        seg = model.enforce_min_possession(
+            model.LABELS[path], int(model.CONFIG["min_possession_s"] * features.FPS))
+        if abstain and model.CONFIG["abstain_below"] > 0:
+            codes = np.array(
+                [{"H": 0, "A": 1, "D": 2}[c] for c in seg], np.int8)
+            post = model.posteriors(E[first:last + 1], logT)
+            seg = seg.copy()
+            seg[model.abstain(codes, post, model.CONFIG["abstain_below"])] = "X"
+        labels[first:last + 1] = seg
     return labels
 
 
@@ -116,7 +123,7 @@ def main():
     still = model.ball_still(f).astype(np.float64)
     k_team = args.k_team if args.k_team is not None else calibrate(team_llr, dead, n, extra,
                                                                     still=still)
-    labels = decode(model.emissions(team_llr, dead, k_team, extra, still), n)
+    labels = decode(model.emissions(team_llr, dead, k_team, extra, still), n, abstain=True)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     with open(args.out, "w", newline="\n") as handle:

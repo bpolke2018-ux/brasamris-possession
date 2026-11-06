@@ -93,6 +93,15 @@ CONFIG = {
     "still_nats": 0.1,        # v4
     "still_speed": 1.5,
     "still_half_s": 0.5,
+    # X abstention (macroF1 tie-break only; spellF1 is unchanged by construction). The scorer
+    # forward-fills X with the previous label before matching possessions, so an X on a frame
+    # whose label equals the previous frame's leaves every possession exactly as it was. On
+    # macroF1 a wrong label costs a false negative for the true class AND a false positive for
+    # the predicted one; an X costs only the false negative. Abstaining on a frame we would get
+    # right with probability p changes F1_k by about (F1_k - 2p) / S_k, so it pays when
+    # p < F1_k / 2. With F1 ~ 2/3 that is p < 1/3. p is the HMM's own posterior (forward-backward),
+    # which is overconfident (frames are not independent), so this abstains rarely. 0 = off.
+    "abstain_below": 0.0,
 }
 
 
@@ -233,6 +242,39 @@ def emissions(team_llr, dead, k_team=None, extra_llr=0.0, still=None):
         share = share * still
     E[:, D] = dead + share * np.abs(total) / 2
     return E
+
+
+def posteriors(E, logT):
+    """(n, 3) state marginals by scaled forward-backward. Uniform initial distribution."""
+    n = len(E)
+    T = np.exp(logT)
+    lik = np.exp(E - E.max(axis=1, keepdims=True))
+    alpha = np.empty((n, 3))
+    a = lik[0] / lik[0].sum()
+    alpha[0] = a
+    for i in range(1, n):
+        a = (a @ T) * lik[i]
+        a /= a.sum()
+        alpha[i] = a
+    post = np.empty((n, 3))
+    b = np.ones(3)
+    post[-1] = alpha[-1]
+    for i in range(n - 1, 0, -1):
+        b = T @ (lik[i] * b)
+        b /= b.sum()
+        p = alpha[i - 1] * b
+        post[i - 1] = p / p.sum()
+    return post
+
+
+def abstain(seg_path, post, below):
+    """Bool mask: frames to write as X. Never the first frame of a run, so the scorer's
+    forward fill restores exactly seg_path."""
+    if below <= 0:
+        return np.zeros(len(seg_path), bool)
+    conf = post[np.arange(len(seg_path)), seg_path]
+    same = np.concatenate(([False], seg_path[1:] == seg_path[:-1]))
+    return same & (conf < below)
 
 
 def viterbi(E, logT):
