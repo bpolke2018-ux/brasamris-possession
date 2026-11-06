@@ -46,6 +46,21 @@ def graded_mask(n):
     return m
 
 
+def fill_x(labels):
+    """Forward-fill X inside each half (back-fill at the head), exactly as the official scorer
+    does before its temporal metrics: 'H X X H' is one possession, not two."""
+    out = labels.copy()
+    for _, first, last in half_video_blocks(GAME):
+        w = out[first:last + 1]
+        known = np.flatnonzero(w != "X")
+        if not len(known):
+            continue
+        carry = np.maximum.accumulate(np.where(w != "X", np.arange(len(w)), -1))
+        carry[carry < 0] = known[0]
+        out[first:last + 1] = w[carry]
+    return out
+
+
 def segments(labels):
     """(label, start, end_exclusive) runs within each half, graded frames only."""
     out = []
@@ -76,7 +91,7 @@ def evaluate(labels, events):
     res["phase_agree"] = float(np.mean(labels[live] == expected[live])) if live.any() else np.nan
     res["phase_frames"] = int(live.sum())
 
-    segs = segments(labels)
+    segs = segments(fill_x(labels))      # structure is judged as the scorer sees it
     restarts = np.array([s for lab, s, _ in segs if lab in ("H", "A")])
     prev = {s: lab for lab, s, _ in segs}
     # a restart is an H/A segment that follows a D segment
@@ -99,7 +114,7 @@ def evaluate(labels, events):
     res["dur_p10"], res["dur_p50"], res["dur_p90"] = (np.percentile(poss, [10, 50, 90])
                                                       if len(poss) else (np.nan,) * 3)
     res["short_lt2s"] = float(np.mean(poss < 2)) if len(poss) else np.nan
-    res["share_D"] = float(np.mean(labels[graded] == "D"))
+    res["share_D"] = float(np.mean(fill_x(labels)[graded] == "D"))
     res["share_X"] = float(np.mean(labels[graded] == "X"))
     return res
 

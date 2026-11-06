@@ -84,3 +84,18 @@ e11: d_team_share=1 on all frames (control evidence neutral between live and D) 
 | e12c (share 0.5 all + still) | 0.721 | 0.103 | 4.300 | 341 | 1.320 | 7.320 | 32.440 | 0.161 | 0.330 | 0.000 | 0.137 | 0.133 | 0.993 |
 | e12d (neutral on still, no still nats) | 0.721 | 0.121 | 4.140 | 348 | 1.280 | 7.140 | 32.488 | 0.172 | 0.313 | 0.000 | 0.078 | 0.074 | 0.993 |
 
+## round 7: X abstention from the HMM posterior — 2026-11-05
+
+Rule (src/model.py abstain, src/run.py decode): write X on a frame only if its label equals the previous frame's (so the scorer's forward fill restores the exact v4 labels -> spellF1 unchanged, verified: filled == v4 on every graded frame) and the forward-backward posterior of that label is below a threshold. macroF1 reasoning: a wrong label costs FN(true) + FP(pred), an X costs FN only, so X pays when P(correct) < F1_k / 2 (about 1/3).
+Model-expected macroF1 (src/abstain_report.py, posteriors as soft truth): v4 0.890, X<0.33 0.905, X<0.5 0.906. But 0.89 is far above what any real system scores, so the posteriors are miscalibrated, and the model cannot vouch for itself. Independent check: v4's phase agreement (held-out tags) on the frames that would be abstained:
+
+| threshold | X share of graded | abstained frames' phase agreement | kept frames' agreement |
+|---|---|---|---|
+| 0.05 | 0.005 | 0.471 | — |
+| 0.10 | 0.009 | 0.556 | — |
+| 0.20 | 0.016 | 0.608 | — |
+| 0.33 | 0.051 | 0.640 | 0.732 |
+| 0.50 | 0.085 | 0.624 | 0.738 |
+
+With tag noise e implied by the overall agreement (q(1-e)+(1-q)e = 0.73 at a plausible q ~0.85 -> e ~0.17), even the 0.05 set implies P(correct) ~0.45, above the ~1/3 break-even. Low-posterior frames are near our own boundaries, where the Viterbi label is still right more often than the marginals say. DROPPED: abstain_below stays 0 (code kept). Also fixed src/proxy_eval.py to forward-fill X before the structure metrics, exactly as the scorer does (no effect on X-free files).
+
