@@ -1,4 +1,23 @@
-# Handoff (2026-11-03, updated 2026-11-05 evening)
+# Handoff (2026-11-03, updated 2026-11-06 03:10 UTC)
+
+## EXACT RESUME POINT (stopped by Brandon, 2026-11-06)
+
+Best version: **v6** (`python -m src.run` -> submissions/v6.csv, verified byte-identical after the last edits).
+Next, in order:
+1. **Other-games test set: waiting for Brandon's direct OK to download** github.com/metrica-sports/sample-data
+   (~60 MB to transfer, ~215 MB on disk) into D:\Barcelona Hackathon\other_games (outside the repo, gitignored).
+   Plan: event-derived possession labels -> notes/other_games.md; measure mean possession, dead-ball
+   length, stoppage share and player speed live vs dead; adapter so our pipeline runs on that tracking;
+   score with the official possession_metrics. Settings may be chosen on those games only.
+2. **Kickoff detection (round 13, e17), undecided:** code is in src/model.py (kickoff_formation,
+   kickoff_nats=0 = off) and src/restart_report.py (kickoff timing). With 0.15 nats the restart lands
+   at the kick (median 0.0 s, against -14.8 s in v6), phase_agree 0.732 vs 0.734, 335 possessions. Decide
+   keep or drop (7 episodes only), then write it up.
+3. **HSMM** (duration-aware possessions).
+Scratch analysis scripts (aggregates only) were in the session scratchpad and are not needed;
+everything they found is in notes/experiments.md rounds 6-13.
+Brandon wants plain-language before/after reports for every experiment.
+
 
 ## Latest: v6 → `submissions/v6.csv`
 

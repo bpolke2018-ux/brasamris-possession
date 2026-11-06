@@ -149,3 +149,13 @@ Reading: the dead-ball duration and stoppage share hardly matter. Two priors car
 
 Feasibility only: frames with >= 95% of each team's tracked players (>= 8 per team) in their own half, attack direction from src/context.py, merged into episodes >= 1 s: zero episodes, with or without the ball near the centre spot, while there are 5 graded kickoff tags. The shape test is probably too strict for automatic tracking (a stray track or an identity switch on the wrong side), or the half convention needs checking. Parked: other-game validation has priority (see notes/other_games.md).
 
+## round 13 (stopped mid-way, not decided): kickoff formation as dead-ball evidence — 2026-11-06
+
+Second attempt (round 12's test had a bug: NaN slots counted as players on the wrong side). model.kickoff_formation: <= 1 tracked player outside his own half, >= 16 tracked, episodes >= 1 s -> 7 episodes covering all 5 graded kickoff tags; v6 calls only 50% of their frames D. e17 adds kickoff_nats D evidence (control neutral there). restart_report now also times the end of each formation (the kick) against our D->live switch. STOPPED on Brandon's request before deciding; kickoff_nats stays 0 (v6 output verified unchanged).
+
+| run | phase_agree | phase_agree_20s_after_tagged_restart | possessions | share_D | ko_d_during | ko_restart_2s | ko_off_med_s |
+|---|---|---|---|---|---|---|---|
+| v6 | 0.734 | 0.580 | 337 | 0.335 | 0.499 | 0.429 | -14.76 |
+| e17a (0.15) | 0.732 | 0.580 | 335 | 0.341 | 1.000 | 0.571 | 0.00 |
+| e17b (0.4) | 0.732 | 0.580 | 335 | 0.341 | 1.000 | 0.571 | 0.00 |
+

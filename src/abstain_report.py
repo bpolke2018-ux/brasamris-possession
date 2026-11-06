@@ -22,13 +22,16 @@ def posteriors_all():
     n = len(a["bx"])
     team_llr = model.team_evidence(f, model.CONFIG)
     sp_dead, sp_team = run.set_piece_evidence(n)
-    dead = model.dead_evidence(f, sp_dead)
+    kickoff = model.kickoff_formation(a, f) if model.CONFIG["kickoff_nats"] else None
+    dead = model.dead_evidence(f, sp_dead, kickoff)
     extra = model.CONFIG["sp_team_nats"] * sp_team
     if model.CONFIG["context"]:
         extra = extra + model.CONFIG["context_scale"] * context.context_llr(a, f)
     still = model.ball_still(f)
     if model.CONFIG["hold_nats"]:
         still = still | model.throw_hold(f)
+    if kickoff is not None:
+        still = still | kickoff
     still = still.astype(np.float64)
     k = run.calibrate(team_llr, dead, n, extra, still=still)
     E = model.emissions(team_llr, dead, k, extra, still)

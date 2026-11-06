@@ -119,6 +119,11 @@ CONFIG = {
     # aligned by code). "off", "balls" (ball-aligned chunks only) or "players" (+ player-aligned
     # 2 s pieces, less reliable).
     "broadcast_ball": "off",
+    # Kickoff formation: at most one tracked player outside his own half, at least 16 tracked,
+    # held >= 1 s (episodes merged over 2 s gaps). The ball is dead until the kick, by the Laws.
+    # Aggregate check: 7 such episodes, covering all 5 graded kickoff tags; v6 calls only half of
+    # their frames D. kickoff_nats per frame for D, and ball control is neutral there. 0 = off.
+    "kickoff_nats": 0.0,
 }
 
 
@@ -217,7 +222,7 @@ def team_evidence(f, cfg=CONFIG):
     return w * np.tanh(margin / cfg["margin_scale_m"])
 
 
-def dead_evidence(f, set_piece_mask):
+def dead_evidence(f, set_piece_mask, kickoff=None):
     """D log-score per frame relative to the live states."""
     seen_in = f["ball_seen"] & ~f["ball_out"]
     z = np.clip((WALK_SPEED - np.nan_to_num(f["mean_speed"], nan=WALK_SPEED)) / SPEED_SCALE, -3, 3)
@@ -232,6 +237,8 @@ def dead_evidence(f, set_piece_mask):
         out += CONFIG["still_nats"] * ball_still(f)
     if CONFIG["hold_nats"]:
         out += CONFIG["hold_nats"] * throw_hold(f)
+    if CONFIG["kickoff_nats"] and kickoff is not None:
+        out += CONFIG["kickoff_nats"] * kickoff
     return out
 
 
@@ -244,6 +251,37 @@ def throw_hold(f):
         beyond = f["ball_seen"] & ((by < 0) | (by > W)) & (bx > 0) & (bx < L)
     dmin = np.nan_to_num(np.fmin(f["d_home"], f["d_away"]), nan=99.0)
     return beyond & (np.nan_to_num(f["ball_speed"], nan=99) < 3.0) & (dmin < 2.5)
+
+
+def kickoff_formation(a, f):
+    """Bool per frame: both teams in their own halves (<= 1 player across), >= 16 tracked, for
+    episodes lasting >= 1 s. Attack direction per half from src/context.py (unsupervised)."""
+    import warnings
+    from src import context
+    from src.features import PITCH
+    L = PITCH[0]
+    _, direction = context.shape_features(a, f)
+    side = np.where(direction > 0, 1.0, -1.0)[:, None]
+    px, team = a["px"], a["team"]
+    with warnings.catch_warnings(), np.errstate(invalid="ignore"):
+        warnings.simplefilter("ignore", RuntimeWarning)
+        hx = (px[:, team == 0] - L / 2) * side          # home's own half: < 0
+        ax = (px[:, team == 1] - L / 2) * side          # away's own half: > 0
+        wrong = np.sum(hx > 1.0, 1) + np.sum(ax < -1.0, 1)
+    tracked = np.isfinite(px).sum(1)
+    m = (wrong <= 1) & (tracked >= 16)
+    e = np.diff(np.concatenate(([0], m.astype(np.int8), [0])))
+    out = np.zeros(len(m), bool)
+    eps = []
+    for s, t in zip(np.flatnonzero(e == 1), np.flatnonzero(e == -1)):
+        if eps and s - eps[-1][1] < 2 * FPS:
+            eps[-1][1] = t
+        else:
+            eps.append([s, t])
+    for s, t in eps:
+        if t - s >= FPS:
+            out[s:t] = True
+    return out
 
 
 def ball_still(f, cfg=CONFIG):

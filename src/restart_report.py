@@ -130,16 +130,38 @@ def throw_report(labels, eps):
             "throw_off_med": round(float(np.median(offs)), 2)}
 
 
+def kickoff_ends(a, f, graded):
+    """Last frame of each kickoff-formation episode (model.kickoff_formation): the kick breaks
+    the formation, so play restarts there."""
+    from src import model
+    m = model.kickoff_formation(a, f) & graded
+    e = np.diff(np.concatenate(([0], m.astype(np.int8), [0])))
+    return [(s, t) for s, t in zip(np.flatnonzero(e == 1), np.flatnonzero(e == -1))]
+
+
+def kickoff_report(labels, eps):
+    if not eps:
+        return {}
+    switches = d_to_live(labels)
+    offs = np.array([(switches[np.argmin(np.abs(switches - t))] - t) / FPS for _, t in eps])
+    return {"n_kickoff": len(eps),
+            "ko_d_during": round(float(np.mean([np.mean(labels[s:t] == "D") for s, t in eps])), 3),
+            "ko_restart_2s": round(float(np.mean(np.abs(offs) <= 2)), 3),
+            "ko_off_med": round(float(np.median(offs)), 2)}
+
+
 def main(paths):
     a = atd.load()
     f = features.compute(a)
     graded = proxy_eval.graded_mask(len(a["bx"]))
     kicks = placed_ball_kicks(f, graded)
     throws = throw_reentries(f, graded)
+    kos = kickoff_ends(a, f, graded)
     for p in paths:
         lab = proxy_eval.fill_x(proxy_eval.read(p))
         r = report(lab, kicks)
         r.update(throw_report(lab, throws))
+        r.update(kickoff_report(lab, kos))
         print(p, {k: (round(v, 3) if isinstance(v, float) else v) for k, v in r.items()})
 
 
