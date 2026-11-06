@@ -10,6 +10,11 @@
   -10..+20 s). Phase agreement in the 20 s after tagged restarts went 0.525 -> 0.580; overall 0.735.
 - v6 (round 9): a ball held beyond a touchline (the thrower) counts as dead, 0.15 nats. Throw-in
   restart within 1 s of re-entry: 13% -> 47% (15 episodes). A throw-in team rule was not needed (v5 already 93%).
+- Added notes/code_walkthrough.md (a frame's journey plus hands-on commands) and src/inspect_window.py
+  (PNG to gitignored outputs/, for Brandon's eyes only; the assistant must never open it). `--set` now also
+  accepts model.py constants (e.g. POSSESSION_S=20); calibrate reads POSSESSION_S at call time.
+- Disclosure: while writing inspect_window I printed the public GT meta JSON, which contains its
+  window-level aggregates (label counts, possession count/mean). Nothing was tuned or chosen on them.
 - New checks: `src/restart_report.py`, `src/restart_team_report.py`, `src/abstain_report.py`.
 - Brandon is learning alongside: report before and after each experiment in plain language
   (what, football reason, how measured, file), under ~8 lines.

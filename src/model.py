@@ -251,8 +251,6 @@ def ball_still(f, cfg=CONFIG):
     return sliding_window_view(padded, 2 * h + 1).all(axis=1)
 
 
-
-
 def emissions(team_llr, dead, k_team=None, extra_llr=0.0, still=None):
     """(n, 3) log-scores. Only differences between states matter.
 

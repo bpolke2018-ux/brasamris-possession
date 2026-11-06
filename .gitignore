@@ -20,3 +20,6 @@ evaluation/scoreboard.csv
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
+
+# Brandon's own inspection plots (show match data: never commit, never share with an AI)
+outputs/

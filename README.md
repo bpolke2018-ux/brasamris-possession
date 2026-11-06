@@ -12,8 +12,8 @@ the competition terms, must not be redistributed, and is gitignored here (`data/
 ```
 pip install -r requirements.txt            # numpy, pandas
 python -m src.explore                      # aggregate stats -> notes/exploration.md
-python -m src.run                          # -> submissions/v1.csv
-python evaluation/validate_submission.py submissions/v1.csv
+python -m src.run                          # -> submissions/v6.csv
+python evaluation/validate_submission.py submissions/v6.csv
 ```
 
 `games.py` finds the data in `./data`, then `../more-than-a-hack-2027/data`, unless
@@ -21,5 +21,6 @@ python evaluation/validate_submission.py submissions/v1.csv
 
 ## Layout
 
-- `src/` — our pipeline (atd parsing, features, HMM, run). Approach: [notes/v1.md](notes/v1.md)
+- `src/` — our pipeline (atd parsing, features, HMM, run). Approach: [notes/technical_document.md](notes/technical_document.md); code tour: [notes/code_walkthrough.md](notes/code_walkthrough.md)
+- `src/inspect_window.py` — plots a match window for a person to look at (saved to gitignored `outputs/`; shows match data, so never commit or share it)
 - `evaluation/`, `games.py`, `starter/` — copied from the starter repository (MIT, see LICENSE)

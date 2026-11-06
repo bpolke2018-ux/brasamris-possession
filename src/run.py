@@ -2,6 +2,7 @@
 
     python -m src.run                                   # -> submissions/v6.csv
     python -m src.run --set persist_frames=10 --out cache/exp.csv
+    python -m src.run --set POSSESSION_S=20 --out cache/exp.csv   # model.py constants too
 
 v1 (committed earlier) is reproduced by: --k-team 1.0 --set max_control_ball_speed=None
 """
@@ -97,12 +98,14 @@ def possessions(labels):
     return len(lengths), (np.mean(lengths) / features.FPS if lengths else 0.0)
 
 
-def calibrate(team_llr, dead, n, extra=0.0, target_s=model.POSSESSION_S, steps=12, still=None):
+def calibrate(team_llr, dead, n, extra=0.0, target_s=None, steps=12, still=None):
     """K_TEAM such that the decoded match's own mean possession length is target_s.
 
     Larger K_TEAM -> more evidence -> more, shorter possessions, so bisect in log space.
     Deterministic: fixed bracket, fixed number of steps.
     """
+    if target_s is None:
+        target_s = model.POSSESSION_S          # read at call time so --set POSSESSION_S=.. works
     lo, hi = np.log(0.05), np.log(20.0)
     for _ in range(steps):
         mid = (lo + hi) / 2
@@ -123,12 +126,17 @@ def main():
     args = parser.parse_args()
     for item in args.set:
         key, value = item.split("=", 1)
-        if key not in model.CONFIG:
-            raise KeyError("unknown option {!r}; have {}".format(key, sorted(model.CONFIG)))
         try:
-            model.CONFIG[key] = ast.literal_eval(value)
+            value = ast.literal_eval(value)
         except (ValueError, SyntaxError):
-            model.CONFIG[key] = value          # bare string, e.g. sp_dead_window=start
+            pass                               # bare string, e.g. sp_dead_window=start
+        if key in model.CONFIG:
+            model.CONFIG[key] = value
+        elif key.isupper() and hasattr(model, key):
+            setattr(model, key, value)         # module constant, e.g. POSSESSION_S=20
+        else:
+            raise KeyError("unknown option {!r}; have {} or a model.py CONSTANT".format(
+                key, sorted(model.CONFIG)))
 
     a = atd.load()
     f = features.compute(a)
