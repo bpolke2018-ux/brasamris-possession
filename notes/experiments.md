@@ -132,3 +132,16 @@ e16a (fill from ball-aligned chunks) and e16b (+ player pieces): both lower phas
 | e16a_bc_balls | 0.726 | 0.569 | 339 | 0.153 | 0.332 |
 | e16b_bc_players | 0.713 | 0.566 | 343 | 0.143 | 0.325 |
 
+## round 11: sensitivity of v6 to its football priors (no change) — 2026-11-05
+
+Each prior nudged on its own, K_TEAM re-calibrated each time (to POSSESSION_S, as always). "boundaries" = share of the variant's segment starts within 1 s of one of v6's.
+
+| prior (v6 value) | variant | K_TEAM | frames changed | boundaries within 1 s of v6 | possessions | share_D | phase_agree |
+|---|---|---|---|---|---|---|---|
+| DEAD_BALL_S (30) | 20 / 40 | 1.815 / 1.815 | 0.001 / 0.001 | 0.99 / 1.00 | 339 / 337 | 0.334 / 0.336 | 0.734 / 0.734 |
+| SHARE_ENDING_IN_STOPPAGE (1/3) | 0.2 / 0.5 | 1.763 / 1.924 | 0.001 / 0.004 | 0.99 / 0.98 | 340 / 340 | 0.334 / 0.333 | 0.734 / 0.731 |
+| POSSESSION_S (12.5) | 10 / 15 | 3.399 / 1.230 | 0.022 / 0.022 | 0.82 / 0.98 | 423 / 277 | 0.333 / 0.344 | 0.719 / 0.734 |
+| WALK_SPEED (1.3) | 1.1 / 1.5 | 2.468 / 1.479 | 0.073 / 0.052 | 0.85 / 0.90 | 368 / 314 | 0.272 / 0.379 | 0.724 / 0.743 |
+
+Reading: the dead-ball duration and stoppage share hardly matter. Two priors carry the result: POSSESSION_S sets the possession count through calibration (277-423), and WALK_SPEED sets the dead-ball share (27-38%). Neither can be validated without labels, and phase_agree is biased (it rises with fewer, longer possessions and with more D, since it only scores live frames). Both stay at the values fixed a priori in v1 (2026-11-02), before any of this. They are NOT to be tuned on the public window. Disclosure: the public GT meta JSON, which states its window's label counts and mean possession, was printed once on 2026-11-05 while building inspect_window. That is one more reason to leave these two priors exactly where they were set beforehand.
+

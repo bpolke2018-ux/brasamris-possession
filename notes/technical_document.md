@@ -184,6 +184,19 @@ the structure check is essential.
 - **Next:** a duration-aware model (HSMM); detecting the regroup-then-burst pattern of a restart;
   the broadcast feed is now aligned by code, but its ball adds little where we need it (§2).
 
+### 7.1 Which assumptions matter
+
+We re-ran v6 with each football prior nudged (log round 11). The mean stoppage length (20–40 s)
+and the share of possessions ending in a stoppage (0.2–0.5) change fewer than 0.5% of frames. Two
+priors carry the result:
+
+- **Mean possession length** (12.5 s): K_TEAM is calibrated to it, so it sets the possession count
+  (10 s → 423, 15 s → 277).
+- **Walking pace** (1.3 m/s): it sets the dead-ball share (1.1 → 27%, 1.5 → 38%).
+
+Both were fixed from general football knowledge in v1, before any development. They were never
+tuned.
+
 ## 8. Reproduction
 
 ```
