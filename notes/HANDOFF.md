@@ -18,6 +18,10 @@
 - New checks: `src/restart_report.py`, `src/restart_team_report.py`, `src/abstain_report.py`.
 - Brandon is learning alongside: report before and after each experiment in plain language
   (what, football reason, how measured, file), under ~8 lines.
+- e16 (round 10): the broadcast ATD is aligned by code (src/broadcast.py, balls agree within 0.6 m), but
+  borrowing its ball fills only 3.7% of missing frames and lowered the checks: dropped.
+- Round 11: sensitivity. Only POSSESSION_S (sets the possession count) and WALK_SPEED (sets the D share)
+  matter much; both stay at their a-priori v1 values and must not be tuned.
 - Next ideas: kickoff detection (ball still at the centre spot, both teams in their own halves); HSMM.
 
 
