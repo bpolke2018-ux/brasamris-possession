@@ -1,6 +1,6 @@
 """Build a submission from the provided data. Deterministic: no randomness anywhere.
 
-    python -m src.run                                   # -> submissions/v4.csv
+    python -m src.run                                   # -> submissions/v5.csv
     python -m src.run --set persist_frames=10 --out cache/exp.csv
 
 v1 (committed earlier) is reproduced by: --k-team 1.0 --set max_control_ball_speed=None
@@ -15,7 +15,7 @@ import numpy as np
 from src import atd, context, features, model, tagging
 from games import GAME, half_video_blocks
 
-OUT = os.path.join(atd.ROOT, "submissions", "v4.csv")
+OUT = os.path.join(atd.ROOT, "submissions", "v5.csv")
 
 
 TEAM_TAG = {"barcelona": 1.0, "atletic club": -1.0}     # +1 home (H), -1 away (A)
@@ -47,11 +47,32 @@ def set_piece_evidence(n, cfg=model.CONFIG):
     return dead, team
 
 
+def restart_penalty(n, cfg=model.CONFIG):
+    """(n, 2) cost of D -> H / D -> A at each frame from team-tagged SET PIECES (or None)."""
+    if not cfg["sp_restart_pen"]:
+        return None
+    fps = 25
+    pen = np.zeros((n, 2))
+    for e in tagging.load():
+        if (e["code"] or "").strip().lower() != "set pieces":
+            continue
+        sign = TEAM_TAG.get((e["tags"].get("Team") or "").strip().lower(), 0.0)
+        if not sign:
+            continue
+        s = e["start_frame"]
+        lo = max(s - int(cfg["sp_restart_before_s"] * fps), 0)
+        hi = max(s + int(cfg["sp_restart_after_s"] * fps), 0)
+        pen[lo:hi, 1 if sign > 0 else 0] = cfg["sp_restart_pen"]   # forbid the other side
+    return pen
+
+
 def decode(E, n, abstain=False):
     labels = np.full(n, "X", dtype="<U1")      # ungraded frames: never scored
     logT = model.transition_logs()
+    pen = restart_penalty(n)
     for _, first, last in half_video_blocks(GAME):
-        path = model.viterbi(E[first:last + 1], logT)
+        path = model.viterbi(E[first:last + 1], logT,
+                             None if pen is None else pen[first:last + 1])
         seg = model.enforce_min_possession(
             model.LABELS[path], int(model.CONFIG["min_possession_s"] * features.FPS))
         if abstain and model.CONFIG["abstain_below"] > 0:

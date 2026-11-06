@@ -1,8 +1,23 @@
-# Handoff (2026-11-03)
+# Handoff (2026-11-03, updated 2026-11-05 evening)
+
+## Latest: v5 → `submissions/v5.csv` (commit after 8498175)
+
+- v4 (round 6): a still (placed) ball counts as dead-ball evidence, and ball control is neutral
+  for live vs D on still frames. Placed-ball restarts went from 6.4 s early to 0.5 s early.
+- e13 (round 7): posterior X abstention was tested and dropped. The held-out tags show those
+  frames are right about 64% of the time, far above the ~1/3 break-even.
+- v5 (round 8): the set-piece Team tag constrains the restart (D -> other team costs 5 nats,
+  -10..+20 s). Phase agreement in the 20 s after tagged restarts went 0.525 -> 0.580; overall 0.735.
+- New checks: `src/restart_report.py`, `src/restart_team_report.py`, `src/abstain_report.py`.
+- Brandon is learning alongside: report before and after each experiment in plain language
+  (what, football reason, how measured, file), under ~8 lines.
+- Next ideas: throw-in restarts (ball out at a touchline, then reappears near the same spot);
+  kickoff detection (ball still at the centre spot, both teams in their own halves); HSMM.
+
 
 ## Current best: v3 → `submissions/v3.csv`
 
-Run `python -m src.run` (about 15 s once `cache/` exists; the first run parses the ATD, 1–2 min).
+Run `python -m src.run` (about 1 min once `cache/` exists; the first run parses the ATD, 1–2 min more).
 
 The pipeline:
 1. **Ball evidence:** nearest-player team evidence, with no credit while the ball moves faster than

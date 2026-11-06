@@ -99,3 +99,14 @@ Model-expected macroF1 (src/abstain_report.py, posteriors as soft truth): v4 0.8
 
 With tag noise e implied by the overall agreement (q(1-e)+(1-q)e = 0.73 at a plausible q ~0.85 -> e ~0.17), even the 0.05 set implies P(correct) ~0.45, above the ~1/3 break-even. Low-posterior frames are near our own boundaries, where the Viterbi label is still right more often than the marginals say. DROPPED: abstain_below stays 0 (code kept). Also fixed src/proxy_eval.py to forward-fill X before the structure metrics, exactly as the scorer does (no effect on X-free files).
 
+## round 8: restarting team as a restart constraint — 2026-11-05
+
+Aggregate prior check first (v4 team before the stoppage vs tagged restarter): corners same team 12/0, goal kicks other team 8/2, free kicks 3/2; v4's own D stretches 41 same / 41 other. Over all stoppage types "the other team restarts" is close to a coin flip, so a generic switch prior was NOT built. Instead e14: inside [tag start - 10 s, tag start + 20 s] of the 22 team-tagged SET PIECES (corners, goal kicks, free kicks), the D -> live transition to the non-tagged team costs sp_restart_pen nats (time-varying Viterbi transition); later turnovers untouched. Held-out check src/restart_team_report.py: phase agreement in the 20 s after those tag starts (phase tags never fed to the model). KEPT e14a (5 nats, soft: strong evidence can still override a tagging error) as v5. 5 vs 20 nats are equal on the proxy; 5 chosen by the softness argument, not by score. Caveat: 22 events, so the 20 s agreement is noisy.
+
+| run | phase_agree | phase_agree_20s_after_tagged_restart | tagged_team_share (not independent) | possessions | short_lt2s | share_D |
+|---|---|---|---|---|---|---|
+| v4 | 0.727 | 0.525 | 0.674 | 340 | 0.168 | 0.332 |
+| **e14a = v5** (pen 5, -10..+20 s) | 0.735 | 0.580 | 0.725 | 338 | 0.163 | 0.332 |
+| e14b (pen 20) | 0.734 | 0.579 | 0.745 | 340 | 0.162 | 0.332 |
+| e14c (pen 20, -10..+10 s) | 0.732 | 0.565 | 0.720 | 340 | 0.165 | 0.333 |
+

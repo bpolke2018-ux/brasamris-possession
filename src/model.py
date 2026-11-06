@@ -102,6 +102,14 @@ CONFIG = {
     # p < F1_k / 2. With F1 ~ 2/3 that is p < 1/3. p is the HMM's own posterior (forward-backward),
     # which is overconfident (frames are not independent), so this abstains rarely. 0 = off.
     "abstain_below": 0.0,
+    # Restarting team from the set-piece Team tag, as a constraint on the restart itself rather
+    # than as evidence on fixed frames (e5): inside [tag start - before, tag start + after], a
+    # D -> live transition to the NON-tagged team costs sp_restart_pen nats. Later turnovers are
+    # untouched. Football: the first possession after a restart belongs to the team taking it.
+    # 0 = off.
+    "sp_restart_pen": 5.0,    # v5
+    "sp_restart_before_s": 10.0,
+    "sp_restart_after_s": 20.0,
 }
 
 
@@ -277,17 +285,23 @@ def abstain(seg_path, post, below):
     return same & (conf < below)
 
 
-def viterbi(E, logT):
-    """Most likely state path for one contiguous block. Uniform initial distribution."""
+def viterbi(E, logT, restart_pen=None):
+    """Most likely state path for one contiguous block. Uniform initial distribution.
+
+    restart_pen: optional (n, 2) extra log-cost of the D -> H and D -> A transitions into frame i.
+    """
     n = len(E)
     back = np.zeros((n, 3), np.int8)
     score = E[0].copy()
     t = logT.tolist()
+    pen = restart_pen.tolist() if restart_pen is not None else None
     for i in range(1, n):
         s0, s1, s2 = score
         new = np.empty(3)
         for j in range(3):
             c0, c1, c2 = s0 + t[0][j], s1 + t[1][j], s2 + t[2][j]
+            if pen is not None and j < 2:
+                c2 -= pen[i][j]
             if c0 >= c1 and c0 >= c2:
                 new[j], back[i, j] = c0, 0
             elif c1 >= c2:

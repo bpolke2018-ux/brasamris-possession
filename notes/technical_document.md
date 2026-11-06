@@ -33,10 +33,19 @@ All quantities are in metres (pitch 105.3 × 68.0 m, from `games.py`).
 | ball out | D | ball seen more than 1 m beyond a line |
 | ball fast in pitch | against D | ball moving faster than 3 m/s inside the pitch means someone kicked it |
 | set-piece window | D | inside a Smart Tagging `SET PIECES` interval |
+| placed ball | D | ball seen inside the pitch and below 1.5 m/s for a full second (±0.5 s). On these frames ball control is **neutral** between live and D |
 
 **The in-flight gate.** A ball travelling faster than 8 m/s is a pass, clearance or shot. The
 player nearest to it is not controlling it; they are usually an opponent it is passing. Removing
 control evidence on those frames was the largest single improvement we found (§5).
+
+**The placed ball (v4).** A player standing next to the ball is evidence of *which* team, not of
+*whether* the ball is live: at a free kick or goal kick someone stands over the placed ball. In
+v3 the ball was seen on only 5% of predicted dead-ball frames, so "dead" in practice meant "ball
+missing", and placed balls were called live. Since v4, when the ball is motionless, the control
+evidence counts equally for live and dead, and stillness itself is mild dead-ball evidence. The
+check (§4): play now restarts a median 0.5 s before the kick that follows a placed ball, where
+v3 restarted 6.4 s before it.
 
 ### 1.2 Team-shape context, learned without human labels
 
@@ -68,7 +77,14 @@ would be counted hundreds of times.
 - **Possessions:** mean 12.5 s. Elite football has ~10–15 s, i.e. 300–400 possessions in a match.
   One third end in a stoppage and two thirds in a turnover.
 - **Stoppages:** mean 30 s (throw-ins ~15–20 s; goal kicks, free kicks and corners 25–45 s). Play
-  restarts to either team with equal probability.
+  restarts to either team with equal probability. We checked this. Across stoppage types "the
+  other team restarts" is close to a coin flip: corners go back to the attacking team, goal kicks
+  to the other one.
+- **Restarting team (v5):** for the 22 set pieces whose automatic tag names the team (corners,
+  goal kicks, free kicks), restarting to the *other* team costs 5 nats inside a window from 10 s
+  before to 20 s after the tag. Only the restart is constrained: a turnover a second later is
+  still free. 5 nats is a soft constraint, so clear tracking evidence can still overrule a wrong
+  tag.
 
 The overall weight of the H/A evidence (`K_TEAM`) is **calibrated without labels**: bisection sets
 it so that the decoded match's own mean possession length equals the 12.5 s prior.
@@ -80,7 +96,7 @@ it so that the decoded match's own mean possession length equals the 12.5 s prio
 | Tactical ATD (players and ball) | everything above |
 | Smart Tagging, `SET PIECES` | weak dead-ball evidence |
 | Smart Tagging, phase codes (Build Up, Progression, Defending in …) | **held out** — never fed to the model; used only as an independent development check (§4) |
-| Smart Tagging, set-piece `Team` tag | tried as restart-team evidence; no measurable effect; dropped (§5) |
+| Smart Tagging, set-piece `Team` tag | v5: constrains which team the restart goes to (§1.3). An earlier per-frame version had no effect |
 | Homography, broadcast video and ATD, tactical video | not used: the ATD is already in pitch coordinates, and the broadcast feed is not frame-aligned |
 
 ## 3. Missing and noisy tracking
@@ -101,6 +117,11 @@ The public 5 minutes were **not** used to choose anything. Instead, `src/proxy_e
   independent of the model.
 - **Structure:** possession count, duration percentiles, the share of possessions under 2 s, and
   the share of frames labelled D.
+- **Placed-ball kicks** (`src/restart_report.py`): 51 moments where the ball sits still for at
+  least 1.5 s and is then struck at more than 6 m/s. We ask whether our dead ball ends at the kick.
+  This shares the stillness signal with the v4 evidence, so it is a sanity check, not a score.
+- **Phase agreement after tagged restarts** (`src/restart_team_report.py`): phase agreement over
+  the 20 s after each team-tagged set piece.
 
 A change is kept only if phase agreement improves **and** the structure stays footballing. One
 lesson: phase agreement on its own rewards long possessions, because the tags last 15–30 s. A
@@ -121,6 +142,10 @@ the structure check is essential.
 | set-piece Team tag picks the restarter | 0.721 | 353 | no (noise) |
 | D evidence only around set-piece start | 0.718 | 354 | no |
 | merge possessions < 2 s / 3 s | 0.726 / 0.733 | 248 / 219 | no (implausible structure) |
+| ball control neutral for live vs D everywhere | 0.731 | 294 | no (D runs on after kicks) |
+| **placed ball = dead, control neutral on still frames (v4)** | **0.727** | 340 | yes |
+| X where the posterior is < 1/3 | — | 340 | no (§6) |
+| **tagged team constrains the restart (v5)** | **0.735** | 338 | yes; 0.525 → 0.580 in the 20 s after tagged restarts |
 
 ## 6. Possession rules implemented
 
@@ -132,14 +157,20 @@ the structure check is essential.
 - **Dead ball:** players slow to walking pace, the ball is lost or out of the pitch, or a set piece
   is tagged.
 - **Restarts:** either team, decided by the evidence that follows.
-- **Abstention:** we write `X` only on ungraded frames. Under spellF1 an `X` is filled with the
-  previous label, which our decoder already outputs inside a possession. Under macroF1 an `X` is a
-  miss. So on graded frames an `X` cannot gain anything.
+- **Abstention:** we write `X` only on ungraded frames. We tested a principled rule: X only
+  inside one of our own runs, so the scorer's forward fill gives back exactly the same
+  possessions and spellF1 cannot change. On macroF1 an X costs one false negative, where a wrong
+  label costs a false negative and a false positive, so X pays when P(correct) < F1/2 ≈ 1/3.
+  Taken at face value, the HMM's posterior says 5% of frames qualify. But on those frames, the
+  held-out phase tags agree with our label 64% of the time, against 73% elsewhere. That is
+  worse, but far above the break-even, so the posterior is miscalibrated there and we dropped
+  the rule.
 
 ## 7. Limitations and next steps
 
-- **Restart timing:** whether our D→live boundaries are early or late cannot be measured without
-  labels. Smart Tagging windows are fixed 35 s blocks that start near the restart, not at it.
+- **Restart timing:** only placed-ball restarts can be checked without labels (§4). Corners and
+  throw-ins usually lose the ball from the tracking, so their timing still comes from player
+  speed. Smart Tagging windows are fixed 35 s blocks that start near the restart, not at it.
 - **Throw-ins (26 of 59 set pieces) carry no team tag**, so the side at a throw-in comes only from
   tracking.
 - **Long ball gaps:** the shape context helps but is slow (31 s autocorrelation), so turnovers
@@ -152,12 +183,14 @@ the structure check is essential.
 ```
 pip install -r requirements.txt                    # numpy, pandas
 # data: ./data, ../more-than-a-hack-2027/data, or MTAH_DATA_DIR
-python -m src.run                                  # -> submissions/v3.csv (deterministic)
-python evaluation/validate_submission.py submissions/v3.csv
-python -m src.proxy_eval submissions/v3.csv        # development check, no ground truth
+python -m src.run                                  # -> submissions/v5.csv (deterministic)
+python evaluation/validate_submission.py submissions/v5.csv
+python -m src.proxy_eval submissions/v5.csv        # development check, no ground truth
+python -m src.restart_report submissions/v5.csv    # placed-ball restart check
+python -m src.restart_team_report submissions/v5.csv
 ```
 
-The first run parses the tracking into `cache/` (1–2 minutes). Later runs take about 15 s. The
+The first run parses the tracking into `cache/` (1–2 minutes). Later runs take about a minute. The
 same data always produces a byte-identical file.
 
 ## 9. Training data
