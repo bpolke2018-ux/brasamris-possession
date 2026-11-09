@@ -154,6 +154,29 @@ the structure check is essential.
 | ball filled from aligned broadcast tracking | 0.726 | 339 | no |
 | kickoff formation (both teams in own halves) = dead | 0.732 | 335 | no (covers part of one stretch, splits it) |
 | **graded frames before the half's kickoff = dead (v7)** | 0.733 | 330 | yes; that 114 s stretch was 85% live in v6 |
+| **walking pace 1.4 m/s, measured on three other games (v8)** | 0.743 | 314 | yes; Metrica spellF1 +0.009 [+0.003, +0.016], every BAR-ATH check held |
+
+## 5b. External data: three other games
+
+The rules allow labelled data from other games, provided the organisers can access it and this
+document explains it. We use Metrica Sports' public sample data (github.com/metrica-sports/sample-data):
+three anonymised matches with tracking at 25 fps and hand-coded events. No data about BAR-ATH is
+involved.
+
+- **Labels.** We turn the events into H/A/D labels with fixed rules (`src/other_games.py`,
+  `notes/other_games.md`):
+  - possession goes to the team of the latest pass, carry, shot, set piece or recovery;
+  - the ball is dead from a ball-out, foul, goal or offside until the next restart.
+- **Robustness check.** v7's tag-free core is run on each game and scored with the official
+  scorer. A paired bootstrap (`src/other_games_boot.py`) then tests whether each design choice
+  also helps on games the model has never seen:
+  - the flight gate and the team-shape context both generalise;
+  - the duration-chain idea does not.
+- **One setting comes from them.** The walking-pace threshold (v8, 1.4 m/s) is the midpoint of the
+  median team speed in live play (about 1.9 m/s) and in dead ball (about 0.95 m/s), measured on
+  these games.
+- **Keep rule from then on.** A change is kept only if it hurts neither these games nor the
+  BAR-ATH label-free checks.
 
 ## 6. Possession rules implemented
 
@@ -204,11 +227,11 @@ tuned.
 ```
 pip install -r requirements.txt                    # numpy, pandas
 # data: ./data, ../more-than-a-hack-2027/data, or MTAH_DATA_DIR
-python -m src.run                                  # -> submissions/v7.csv (deterministic)
-python evaluation/validate_submission.py submissions/v7.csv
-python -m src.proxy_eval submissions/v7.csv        # development check, no ground truth
-python -m src.restart_report submissions/v7.csv    # placed-ball restart check
-python -m src.restart_team_report submissions/v7.csv
+python -m src.run                                  # -> submissions/v8.csv (deterministic)
+python evaluation/validate_submission.py submissions/v8.csv
+python -m src.proxy_eval submissions/v8.csv        # development check, no ground truth
+python -m src.restart_report submissions/v8.csv    # placed-ball restart check
+python -m src.restart_team_report submissions/v8.csv
 ```
 
 The first run parses the tracking into `cache/` (1–2 minutes). Later runs take about a minute. The

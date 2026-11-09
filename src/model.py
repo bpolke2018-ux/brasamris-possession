@@ -31,8 +31,11 @@ K_TEAM = 1.0
 
 # --- dead-ball evidence ----------------------------------------------------------------------
 # Live play: outfield players average ~1.8-2 m/s over 90 minutes (10-11 km). During stoppages
-# they walk (~1 m/s). Walking pace, 1.3 m/s, is the midpoint; 0.4 m/s is the spread.
-WALK_SPEED = 1.3
+# they walk (~1 m/s). v1-v7 used 1.3 m/s, the midpoint of those two figures. v8 measures it on
+# three OTHER games (Metrica sample data, labels from their hand-coded events; allowed by RULES.md):
+# median team speed 1.9 m/s live and 0.95 m/s dead, midpoint ~1.4 (notes/experiments.md round 18;
+# it also passed every BAR-ATH check). 0.4 m/s is the spread.
+WALK_SPEED = 1.4          # v8
 SPEED_SCALE = 0.4
 K_SPEED = 0.04          # nats/frame per unit z, z clipped to +/-3 -> at most ~3 nats per second
 K_BALL_MISSING = 0.02   # the tracker loses the ball more often when it is dead (out, held)

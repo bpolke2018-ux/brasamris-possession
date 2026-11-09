@@ -225,3 +225,21 @@ No BAR-ATH setting changed.
 | live 2-phase | 0.465 | 0.737 | -0.004 [-0.011, +0.002] | -0.008 [-0.014, -0.002] |
 | dead 3-phase | 0.444 | 0.714 | -0.031 [-0.042, -0.020] | -0.024 [-0.037, -0.013] |
 | kickoff formation | 0.477 | 0.753 | -0.001 [-0.003, +0.000] | -0.001 [-0.001, -0.000] |
+
+## round 18: the two sensitive settings on both benches; v8 — 2026-11-09
+
+Rule from the coordinator for this and later rounds: a change is kept only if it does not hurt the Metrica paired-bootstrap gap AND does not hurt the BAR-ATH proxy / structure / restart checks. RULES.md allows hand-labelled (here: event-derived) data from other games for training and validation, if the technical document explains it.
+What: POSSESSION_S (mean possession, sets the possession count) 10 / 15 s around 12.5, and WALK_SPEED (the player speed at which dead and live are equally likely, sets the D share) 1.1 / 1.5 m/s around 1.3. Each on BAR-ATH (proxy) and the three Metrica games (official scorer, paired bootstrap vs v7, 5-95%).
+Results: POSSESSION_S 12.5 s holds up: 10 s hurts both benches (Metrica spellF1 -0.026 [-0.035, -0.017]; BAR-ATH phase_agree 0.719, 415 possessions, 23% under 2 s); 15 s is a wash on Metrica (+0.007 [-0.004, +0.016], macroF1 -0.004) and lowers the BAR-ATH 20 s-after-restart check (0.580 -> 0.551) with 271 possessions. WALK_SPEED 1.1 hurts both. 1.5 helps Metrica clearly (+0.021 [+0.010, +0.031]) and BAR-ATH phase_agree (0.743), but lowers the 20 s-after-tagged-restart check (0.580 -> 0.541) and live play after placed-ball kicks (0.993 -> 0.978): fails the rule.
+Artefact check before choosing: Metrica has no speed field, so its speeds come from positions; on BAR-ATH the displacement speed and the tracker's speed agree (median 1.49 vs 1.52 m/s), so the benches are on the same scale. The Metrica labels give an independent measurement: median team speed 1.87-2.00 m/s in live play and 0.92-1.01 m/s in dead ball, midpoint ~1.4. Tested that derived value (not a grid pick): WALK_SPEED 1.4 -> Metrica spellF1 +0.009 [+0.003, +0.016], macroF1 +0.004 [-0.002, +0.010]; BAR-ATH phase_agree 0.733 -> 0.743, 20 s-after-tagged-restart 0.580 -> 0.579, 314 possessions, under-2 s 0.148 -> 0.134, D 0.351 -> 0.380, placed-ball checks equal or better; throw-in restart within 1 s 7/15 -> 6/15 (one event). KEPT as **v8**. (Round 11 had said WALK_SPEED must not be tuned on this match; it still isn't: the value comes from other games' measured speeds.)
+
+| run | phase_agree | after_tagged_restart_20s | possessions | short_lt2s | share_D | pbk_restart_1s | pbk_live_after | throw_restart_1s | Metrica spellF1 gap [5-95%] | Metrica macroF1 gap [5-95%] |
+|---|---|---|---|---|---|---|---|---|---|---|
+| v7 (walk 1.3, poss 12.5) | 0.733 | 0.580 | 330 | 0.148 | 0.351 | 0.294 | 0.993 | 0.467 | (0.502) | (0.773) |
+| poss 10 | 0.719 | 0.548 | 415 | 0.227 | 0.348 | 0.294 | 0.993 | 0.600 | -0.026 [-0.035, -0.017] | -0.003 [-0.006, -0.002] |
+| poss 15 | 0.735 | 0.551 | 271 | 0.085 | 0.361 | 0.294 | 0.993 | 0.400 | +0.007 [-0.004, +0.016] | -0.004 [-0.009, -0.000] |
+| walk 1.1 | 0.725 | 0.581 | 362 | 0.185 | 0.288 | 0.235 | 0.993 | 0.467 | -0.034 [-0.045, -0.023] | -0.032 [-0.045, -0.021] |
+| **walk 1.4 = v8** | 0.743 | 0.579 | 314 | 0.134 | 0.380 | 0.294 | 0.992 | 0.400 | +0.009 [+0.003, +0.016] | +0.004 [-0.002, +0.010] |
+| walk 1.5 | 0.743 | 0.541 | 309 | 0.126 | 0.391 | 0.314 | 0.978 | 0.467 | +0.021 [+0.010, +0.031] | +0.009 [+0.001, +0.017] |
+
+Candidate (2), short ball-gap interpolation: NOT RUN, ruled out by an aggregate count. The ball is missing on 41% of BAR-ATH graded frames, but in 150 long gaps (~17 s on average); gaps of 2 s or less hold 0.1% of the missing frames (0.3-1.1% on the Metrica games). Filling short gaps cannot move the result; filling long ones would invent the ball.

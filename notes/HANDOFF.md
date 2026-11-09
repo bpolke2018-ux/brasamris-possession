@@ -2,16 +2,23 @@
 
 ## EXACT RESUME POINT (updated 2026-11-09)
 
-Best version: **v7** (`python -m src.run` -> submissions/v7.csv, commit 7d29b39 or later): v6 plus
-"graded frames before the half's kickoff tag are dead" (round 14). Round 13 (kickoff formation, e17)
-decided: dropped. Next, in order:
+Best version: **v8** (`python -m src.run` -> submissions/v8.csv): v7 with WALK_SPEED 1.4 m/s, the
+midpoint of live/dead team speeds measured on the three Metrica games (round 18). v7 = v6 plus
+"graded frames before the half's kickoff tag are dead" (round 14).
+Keep rule (coordinator, 2026-11-09): a change is kept only if it hurts neither the Metrica paired
+bootstrap (`python -m src.other_games --save tag` then `python -m src.other_games_boot v8 tag`; re-save
+the reference as v8 first) nor the BAR-ATH proxy / structure / restart checks.
+Next, in order:
 1. **HSMM (step 3)**: done, round 15, dropped (duration prior is cancelled by the K_TEAM re-calibration).
 2. **Other-games test (rounds 16-17)**: done. `python -m src.other_games` (Metrica sample games 1-3 in
    D:\Barcelona Hackathon\other_games, event-derived labels, notes/other_games.md) and
    `python -m src.other_games_boot v7 <tags>` (paired bootstrap). Context and flight gate generalise
    (intervals exclude 0); throw-in hold inert there; the still-ball rule costs ~0.006 spellF1 there
    (borderline) but is KEPT per coordinator (helps BAR-ATH restart timing); Brandon may override.
-3. **Held:** the one-time public-window sanity score, only once the final version is frozen.
+3. **Round 18 done:** POSSESSION_S 12.5 confirmed; WALK_SPEED 1.4 kept (v8). Ball-gap interpolation ruled out
+   (short gaps hold 0.1% of missing frames). Next: round 19, controlled possession (same player near
+   the ball for several frames).
+4. **Held:** the one-time public-window sanity score, only once the final version is frozen.
 Brandon wants plain-language before/after reports for every experiment.
 
 ## Latest: v7 -> `submissions/v7.csv`
