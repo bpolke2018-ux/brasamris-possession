@@ -129,6 +129,14 @@ CONFIG = {
     # D. prekick_nats per frame of D evidence (50 = a hard rule; ball control cannot outvote it).
     # The tag time base is checked against both kickoffs (DATA.md). 0 = off (v1-v6).
     "prekick_nats": 50.0,     # v7
+    # Duration-aware states (HSMM-style, by state chaining). A plain HMM makes every stretch's
+    # length geometric: the single most likely possession lasts one frame. Replacing a state by a
+    # chain of r identical sub-states (each left with prob r / mean) makes its length a negative
+    # binomial with the same mean and a mode above zero, so a one-touch flicker becomes unlikely
+    # a priori while long possessions keep their cost. live_phases for H and A, dead_phases for D.
+    # 1 = plain HMM (v1-v7).
+    "live_phases": 1,
+    "dead_phases": 1,
 }
 
 
@@ -195,6 +203,69 @@ def transition_logs():
                   [to_other, 1 - leave, to_d],
                   [restart / 2, restart / 2, 1 - restart]])
     return np.log(T)
+
+
+def chain_layout():
+    """(parent state of each sub-state, first sub-state of H, A, D, last sub-state of D)."""
+    rl, rd = CONFIG["live_phases"], CONFIG["dead_phases"]
+    parent = np.array([H] * rl + [A] * rl + [D] * rd, np.int8)
+    return parent, (0, rl, 2 * rl), 2 * rl + rd - 1
+
+
+def chain_transition_logs():
+    """(S, S) log transitions of the chained HMM; same means and exit splits as transition_logs."""
+    rl, rd = CONFIG["live_phases"], CONFIG["dead_phases"]
+    parent, (h1, a1, d1), dlast = chain_layout()
+    S = len(parent)
+    T = np.zeros((S, S))
+    p_live = rl / (POSSESSION_S * FPS)
+    p_dead = rd / (DEAD_BALL_S * FPS)
+    for team, first, other in ((H, h1, a1), (A, a1, h1)):
+        for j in range(rl):
+            i = first + j
+            T[i, i] = 1 - p_live
+            if j < rl - 1:
+                T[i, i + 1] = p_live
+            else:
+                T[i, other] = p_live * (1 - SHARE_ENDING_IN_STOPPAGE)
+                T[i, d1] = p_live * SHARE_ENDING_IN_STOPPAGE
+    for j in range(rd):
+        i = d1 + j
+        T[i, i] = 1 - p_dead
+        if j < rd - 1:
+            T[i, i + 1] = p_dead
+        else:
+            T[i, h1] = T[i, a1] = p_dead / 2
+    with np.errstate(divide="ignore"):
+        return np.log(T)
+
+
+def viterbi_chain(E, restart_pen=None):
+    """Viterbi over the chained states; returns the parent-state path (H/A/D codes).
+
+    E is the usual (n, 3) emission; every sub-state copies its parent's column. restart_pen as in
+    viterbi(): extra cost of the D -> H / D -> A transition into frame i (last D sub-state into
+    the first H / A sub-state).
+    """
+    parent, (h1, a1, _), dlast = chain_layout()
+    logT = chain_transition_logs()
+    n, S = len(E), len(parent)
+    Ex = E[:, parent]
+    back = np.zeros((n, S), np.int16)
+    score = Ex[0].copy()
+    for i in range(1, n):
+        cand = score[:, None] + logT
+        if restart_pen is not None:
+            cand[dlast, h1] -= restart_pen[i, 0]
+            cand[dlast, a1] -= restart_pen[i, 1]
+        b = np.argmax(cand, axis=0)
+        back[i] = b
+        score = cand[b, np.arange(S)] + Ex[i]
+    path = np.empty(n, np.int16)
+    path[-1] = int(np.argmax(score))
+    for i in range(n - 1, 0, -1):
+        path[i - 1] = back[i, path[i]]
+    return parent[path]
 
 
 def _run_lengths(sign):

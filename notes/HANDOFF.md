@@ -5,9 +5,10 @@
 Best version: **v7** (`python -m src.run` -> submissions/v7.csv, commit 7d29b39 or later): v6 plus
 "graded frames before the half's kickoff tag are dead" (round 14). Round 13 (kickoff formation, e17)
 decided: dropped. Next, in order:
-1. **HSMM / duration-aware possessions (step 3)**: see notes/experiments.md round 15.
-2. **Other-games test set**: not downloaded. An attempt on 2026-11-09 was blocked by this machine's
-   permission settings; it waits for Brandon to do the download himself or allow it.
+1. **HSMM (step 3)**: done, round 15, dropped (duration prior is cancelled by the K_TEAM re-calibration).
+2. **Other-games test set (round 16)**: Brandon downloaded metrica-sports/sample-data himself into
+   D:\Barcelona Hackathon\other_games (outside the repo). Next: loader + run v7 there as a held-out
+   robustness test, aggregates only; never use it to pick this match's settings beyond robustness.
 Brandon wants plain-language before/after reports for every experiment.
 
 ## Latest: v7 -> `submissions/v7.csv`

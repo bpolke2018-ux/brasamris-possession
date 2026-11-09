@@ -173,3 +173,16 @@ KEPT e18a as **v7**. Everything else unchanged; phase_agree within noise (it onl
 | e17a (formation 0.15) | 0.732 | 0.580 | 335 | 0.149 | 0.341 | 0.37 | 1.000 | 0.00 | 0.973 |
 | **e18a = v7** (prekick 50) | 0.733 | 0.580 | 330 | 0.148 | 0.351 | 1.00 | 0.928 | 0.04 | 0.993 |
 | e18b (prekick + formation) | 0.732 | 0.580 | 331 | 0.151 | 0.352 | 1.00 | 1.000 | 6.32 | 0.973 |
+
+## round 15: duration-aware states (HSMM by state chaining) — 2026-11-09
+
+What: each state (H, A, D) can be replaced by a chain of r identical sub-states (model.chain_transition_logs, model.viterbi_chain; CONFIG live_phases / dead_phases, 1 = v7). Same mean lengths (12.5 s, 30 s) and exit splits, but the length of a stretch becomes negative-binomial with a mode above zero instead of geometric (where the single most likely length is one frame). Football: a team that wins the ball usually keeps it for at least a touch or two, and a restart takes some seconds. a-priori shapes: 2 for live (the smallest non-geometric choice), 3 for dead balls (their lengths vary less). Verified: r = 1 reproduces viterbi() exactly (synthetic input) and v7 is byte-identical.
+DROPPED: every variant lowers phase_agree (0.733 -> 0.721-0.724). Why: K_TEAM is re-calibrated to keep the 12.5 s mean, and since the chain prior makes stretches longer the calibration doubles the evidence weight (1.70 -> 3.3-6.0), which makes the decoder twitchier wherever there is evidence; even the share of possessions under 2 s goes up (0.148 -> 0.163 for live 2). A 3-phase D removes short dead stretches: D share 0.351 -> 0.29, placed-ball restarts within 1 s 0.29 -> 0.14-0.18. The 20 s after tagged restarts improves (0.580 -> 0.59-0.60) only because more of it is called live. Under a fixed-mean calibration a duration prior and the evidence weight trade off against each other, so the prior bought nothing. Code kept, off by default.
+
+| run | K_TEAM | phase_agree | phase_agree_20s_after_tagged_restart | possessions | short_lt2s | share_D | pbk_restart_1s | throw_restart_1s |
+|---|---|---|---|---|---|---|---|---|
+| v7 | 1.70 | 0.733 | 0.580 | 330 | 0.148 | 0.351 | 0.294 | 0.467 |
+| e19a (live 2) | 3.34 | 0.721 | 0.548 | 337 | 0.163 | 0.337 | 0.275 | 0.467 |
+| e19b (dead 3) | 2.47 | 0.724 | 0.598 | 359 | 0.195 | 0.290 | 0.176 | 0.333 |
+| e19c (live 2, dead 3) | 4.36 | 0.723 | 0.591 | 365 | 0.200 | 0.285 | 0.137 | 0.333 |
+| e19d (live 3, dead 3) | 5.99 | 0.724 | 0.598 | 366 | 0.199 | 0.284 | 0.137 | 0.333 |

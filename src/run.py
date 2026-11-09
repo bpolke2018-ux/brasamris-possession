@@ -99,8 +99,11 @@ def decode(E, n, abstain=False):
     logT = model.transition_logs()
     pen = restart_penalty(n)
     for _, first, last in half_video_blocks(GAME):
-        path = model.viterbi(E[first:last + 1], logT,
-                             None if pen is None else pen[first:last + 1])
+        block_pen = None if pen is None else pen[first:last + 1]
+        if model.CONFIG["live_phases"] > 1 or model.CONFIG["dead_phases"] > 1:
+            path = model.viterbi_chain(E[first:last + 1], block_pen)
+        else:
+            path = model.viterbi(E[first:last + 1], logT, block_pen)
         seg = model.enforce_min_possession(
             model.LABELS[path], int(model.CONFIG["min_possession_s"] * features.FPS))
         if abstain and model.CONFIG["abstain_below"] > 0:
