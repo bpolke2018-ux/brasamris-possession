@@ -175,11 +175,20 @@ def main():
     sp_dead, sp_team = set_piece_evidence(n)
     kickoff = model.kickoff_formation(a, f) if model.CONFIG["kickoff_nats"] else None
     prekick = prekick_mask(n) if model.CONFIG["prekick_nats"] else None
-    dead = model.dead_evidence(f, sp_dead, kickoff, prekick)
+    lmode = model.CONFIG["learned"]
+    lm = None
+    if lmode != "off":
+        from src import learned
+        lm = learned.load()
+    dead = model.dead_evidence(f, sp_dead, kickoff, prekick,
+                               learned.dead_core(f, lm) if lmode in ("dead", "both") else None)
 
     extra = model.CONFIG["sp_team_nats"] * sp_team
     if model.CONFIG["context"]:
         extra = extra + model.CONFIG["context_scale"] * context.context_llr(a, f)
+    if lmode in ("team", "both"):
+        team_llr = learned.team_core(a, f, lm)    # control + context, learned
+        extra = model.CONFIG["sp_team_nats"] * sp_team
 
     still = model.ball_still(f)
     if model.CONFIG["hold_nats"]:

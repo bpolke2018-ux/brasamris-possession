@@ -214,20 +214,32 @@ def gt_labels(g, n):
     return lab, blocks
 
 
-def predict(a, blocks):
-    """v7's tag-free core on one game. Points the pipeline's globals at this game."""
+def point_at(blocks):
+    """Point the pipeline's module globals (pitch, half blocks) at a Metrica game."""
     features.PITCH = context.PITCH = PITCH
     run.half_video_blocks = context.half_video_blocks = lambda game: blocks
     model.CONFIG["sp_restart_pen"] = 0.0     # no Smart Tagging here
     model.CONFIG["prekick_nats"] = 0.0
+
+
+def predict(a, blocks, learned=None):
+    """v7's tag-free core on one game (learned: weights from src/learned.py, used as
+    model.CONFIG["learned"] says)."""
+    from src import learned as lrn
+    point_at(blocks)
     f = features.compute(a)
     n = len(a["bx"])
     team_llr = model.team_evidence(f, model.CONFIG)
     kickoff = model.kickoff_formation(a, f) if model.CONFIG["kickoff_nats"] else None
-    dead = model.dead_evidence(f, np.zeros(n, bool), kickoff)
+    lmode = model.CONFIG["learned"] if learned is not None else "off"
+    dead = model.dead_evidence(f, np.zeros(n, bool), kickoff, None,
+                               lrn.dead_core(f, learned) if lmode in ("dead", "both") else None)
     extra = 0.0
     if model.CONFIG["context"]:
         extra = model.CONFIG["context_scale"] * context.context_llr(a, f)
+    if lmode in ("team", "both"):
+        team_llr = lrn.team_core(a, f, learned)
+        extra = 0.0
     still = model.ball_still(f)
     if model.CONFIG["hold_nats"]:
         still = still | model.throw_hold(f)

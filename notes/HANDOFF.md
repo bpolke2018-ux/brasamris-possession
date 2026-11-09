@@ -18,6 +18,13 @@ Next, in order:
 3. **Round 18 done:** POSSESSION_S 12.5 confirmed; WALK_SPEED 1.4 kept (v8). Ball-gap interpolation ruled out
    (short gaps hold 0.1% of missing frames). Round 19 (controlled possession, same player
    nearest for 5/10 frames) dropped: hurts Metrica spellF1. All three coordinator candidates done.
+   **Round 20 (learned per-frame evidence from Metrica, src/learned.py)**: 20 (1/tau scaling) failed;
+   20b (scale picked on training games) +0.080 spellF1 on Metrica but breaks BAR-ATH placed-ball
+   restarts (Metrica blanks the ball in stoppages, so "ball missing = dead" does not transfer);
+   20c (+ hand still term) still fails. NEXT: 20d = learn without the ball-missing clue
+   (`python -m src.learned --dead-scale --no-missing`, ~30 min), then BAR-ATH
+   (`--set learned=dead learned_no_missing=True`). If it fails: round 21, learn HMM transition rates.
+   Target freeze ~Nov 13-14.
 4. **Held:** the one-time public-window sanity score, only once the final version is frozen.
 Brandon wants plain-language before/after reports for every experiment.
 

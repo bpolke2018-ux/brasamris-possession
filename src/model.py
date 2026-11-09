@@ -143,6 +143,17 @@ CONFIG = {
     # binomial with the same mean and a mode above zero, so a one-touch flicker becomes unlikely
     # a priori while long possessions keep their cost. live_phases for H and A, dead_phases for D.
     # 1 = plain HMM (v1-v7).
+    # Learned per-frame evidence (round 20, src/learned.py, weights from the three Metrica games):
+    # "off" (v1-v8), "dead" (learned D core: speed, ball missing / fast / still), "team" (learned
+    # H-vs-A from control + context), or "both". Hand-set terms Metrica cannot teach (ball off
+    # the pitch, throw-in hold, set pieces, pre-kickoff, kickoff) are kept on top.
+    "learned": "off",
+    # With a learned dead core, also add the hand-set still-ball term (still_nats) on top (20c).
+    "learned_keep_still": False,
+    # 20d: learn the dead side WITHOUT the ball-missing clue (Metrica blanks the ball during
+    # stoppages, 90-100% missing when dead, so its weight does not transfer to BAR-ATH, where the
+    # ball is missing on 24% of live-phase frames); the hand K_BALL_MISSING term is kept instead.
+    "learned_no_missing": False,
     "live_phases": 1,
     "dead_phases": 1,
 }
@@ -309,8 +320,29 @@ def team_evidence(f, cfg=CONFIG):
     return w * np.tanh(margin / cfg["margin_scale_m"])
 
 
-def dead_evidence(f, set_piece_mask, kickoff=None, prekick=None):
-    """D log-score per frame relative to the live states."""
+def dead_evidence(f, set_piece_mask, kickoff=None, prekick=None, learned_core=None):
+    """D log-score per frame relative to the live states.
+
+    learned_core: optional learned replacement (src/learned.py) for the speed / ball-missing /
+    ball-fast / ball-still terms; the remaining hand-set terms are added on top.
+    """
+    if learned_core is not None:
+        out = learned_core.copy()
+        if CONFIG["learned_no_missing"]:
+            out += K_BALL_MISSING * ~f["ball_seen"]
+        if CONFIG["learned_keep_still"] and CONFIG["still_nats"]:
+            out += CONFIG["still_nats"] * ball_still(f)
+        out += K_BALL_OUT * f["ball_out"]
+        out += K_SET_PIECE * set_piece_mask
+        if CONFIG["line_nats"]:
+            out += CONFIG["line_nats"] * ball_lost_near_line(f)
+        if CONFIG["hold_nats"]:
+            out += CONFIG["hold_nats"] * throw_hold(f)
+        if CONFIG["kickoff_nats"] and kickoff is not None:
+            out += CONFIG["kickoff_nats"] * kickoff
+        if CONFIG["prekick_nats"] and prekick is not None:
+            out += CONFIG["prekick_nats"] * prekick
+        return out
     seen_in = f["ball_seen"] & ~f["ball_out"]
     z = np.clip((WALK_SPEED - np.nan_to_num(f["mean_speed"], nan=WALK_SPEED)) / SPEED_SCALE, -3, 3)
     out = K_SPEED * z
