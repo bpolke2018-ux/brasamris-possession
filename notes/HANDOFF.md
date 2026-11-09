@@ -16,8 +16,8 @@ Next, in order:
    (intervals exclude 0); throw-in hold inert there; the still-ball rule costs ~0.006 spellF1 there
    (borderline) but is KEPT per coordinator (helps BAR-ATH restart timing); Brandon may override.
 3. **Round 18 done:** POSSESSION_S 12.5 confirmed; WALK_SPEED 1.4 kept (v8). Ball-gap interpolation ruled out
-   (short gaps hold 0.1% of missing frames). Next: round 19, controlled possession (same player near
-   the ball for several frames).
+   (short gaps hold 0.1% of missing frames). Round 19 (controlled possession, same player
+   nearest for 5/10 frames) dropped: hurts Metrica spellF1. All three coordinator candidates done.
 4. **Held:** the one-time public-window sanity score, only once the final version is frozen.
 Brandon wants plain-language before/after reports for every experiment.
 

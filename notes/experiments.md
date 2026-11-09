@@ -243,3 +243,14 @@ Artefact check before choosing: Metrica has no speed field, so its speeds come f
 | walk 1.5 | 0.743 | 0.541 | 309 | 0.126 | 0.391 | 0.314 | 0.978 | 0.467 | +0.021 [+0.010, +0.031] | +0.009 [+0.001, +0.017] |
 
 Candidate (2), short ball-gap interpolation: NOT RUN, ruled out by an aggregate count. The ball is missing on 41% of BAR-ATH graded frames, but in 150 long gaps (~17 s on average); gaps of 2 s or less hold 0.1% of the missing frames (0.3-1.1% on the Metrica games). Filling short gaps cannot move the result; filling long ones would invent the ball.
+
+## round 19: controlled possession by one player — 2026-11-09
+
+What: a player's control evidence counts in full only after the SAME player has been nearest to the ball for persist_player_frames consecutive frames (linear ramp; features.near_id, model.team_evidence; off by default, v8 verified byte-identical). Football: a touch, deflection or a ball rolling past a defender is not control (CHALLENGE.md); control means one player keeps the ball. A-priori lengths 5 frames (0.2 s, a controlled first touch) and 10 frames (0.4 s). Measured on both benches with the keep rule.
+DROPPED: it hurts the Metrica games (spellF1 -0.009 [-0.015, -0.004] for 5 frames, -0.007 [-0.014, +0.000] for 10) and slightly lowers BAR-ATH phase_agree (0.743 -> 0.739 / 0.740); restart checks unchanged, structure unchanged. Likely reason: the ramp delays the new team's evidence exactly at a turnover (the winner has to "hold" before it counts), so possession boundaries arrive late, and the nearest-player identity flips between team-mates in a crowd. Round 1's team-level version was noise for the same reason.
+
+| run | phase_agree | after_tagged_restart_20s | possessions | short_lt2s | share_D | pbk_restart_1s | Metrica spellF1 gap [5-95%] | Metrica macroF1 gap [5-95%] |
+|---|---|---|---|---|---|---|---|---|
+| v8 | 0.743 | 0.579 | 314 | 0.134 | 0.380 | 0.294 | (0.512) | (0.776) |
+| same player 5 frames | 0.739 | 0.579 | 317 | 0.129 | 0.379 | 0.294 | -0.009 [-0.015, -0.004] | -0.000 [-0.002, +0.002] |
+| same player 10 frames | 0.740 | 0.579 | 316 | 0.123 | 0.380 | 0.314 | -0.007 [-0.014, +0.000] | -0.001 [-0.003, +0.001] |

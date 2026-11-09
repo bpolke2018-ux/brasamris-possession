@@ -56,6 +56,11 @@ CONFIG = {
     # Controlled possession: the same team must be nearest for this many consecutive ball-seen
     # frames before its evidence counts in full (ramps up linearly). 0 = v1.
     "persist_frames": 0,
+    # Controlled possession by one player: the SAME player must be nearest to the ball for this
+    # many consecutive frames before his control evidence counts in full (linear ramp). A touch
+    # or deflection is not control (CHALLENGE.md); a player keeping the ball is. Stricter than
+    # persist_frames (team), which was noise in round 1. 0 = off (v1-v8).
+    "persist_player_frames": 0,
     # Add team-shape context (src/context.py), learned from the algorithm's own pseudo-labels.
     "context": True,     # kept in v3
     # Multiplier on the context log-odds (1 = as derived: per-frame logit / autocorrelation time).
@@ -298,6 +303,9 @@ def team_evidence(f, cfg=CONFIG):
     if cfg["persist_frames"] > 0:
         sign = np.where(w > 0, np.sign(margin), 0).astype(np.int8)
         w = w * np.minimum(_run_lengths(sign) / cfg["persist_frames"], 1.0)
+    if cfg.get("persist_player_frames", 0) > 0:
+        ident = np.where(w > 0, f["near_id"] + 1, 0)       # 0 = no candidate controller
+        w = w * np.minimum(_run_lengths(ident) / cfg["persist_player_frames"], 1.0)
     return w * np.tanh(margin / cfg["margin_scale_m"])
 
 
