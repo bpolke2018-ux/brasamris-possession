@@ -1,25 +1,21 @@
 # Handoff (2026-11-03, updated 2026-11-06 03:10 UTC)
 
-## EXACT RESUME POINT (stopped by Brandon, 2026-11-06)
+## EXACT RESUME POINT (updated 2026-11-09)
 
-Best version: **v6** (`python -m src.run` -> submissions/v6.csv, verified byte-identical after the last edits).
-Next, in order:
-1. **Other-games test set: waiting for Brandon's direct OK to download** github.com/metrica-sports/sample-data
-   (~60 MB to transfer, ~215 MB on disk) into D:\Barcelona Hackathon\other_games (outside the repo, gitignored).
-   Plan: event-derived possession labels -> notes/other_games.md; measure mean possession, dead-ball
-   length, stoppage share and player speed live vs dead; adapter so our pipeline runs on that tracking;
-   score with the official possession_metrics. Settings may be chosen on those games only.
-2. **Kickoff detection (round 13, e17), undecided:** code is in src/model.py (kickoff_formation,
-   kickoff_nats=0 = off) and src/restart_report.py (kickoff timing). With 0.15 nats the restart lands
-   at the kick (median 0.0 s, against -14.8 s in v6), phase_agree 0.732 vs 0.734, 335 possessions. Decide
-   keep or drop (7 episodes only), then write it up.
-3. **HSMM** (duration-aware possessions).
-Scratch analysis scripts (aggregates only) were in the session scratchpad and are not needed;
-everything they found is in notes/experiments.md rounds 6-13.
+Best version: **v7** (`python -m src.run` -> submissions/v7.csv, commit 7d29b39 or later): v6 plus
+"graded frames before the half's kickoff tag are dead" (round 14). Round 13 (kickoff formation, e17)
+decided: dropped. Next, in order:
+1. **HSMM / duration-aware possessions (step 3)**: see notes/experiments.md round 15.
+2. **Other-games test set**: not downloaded. An attempt on 2026-11-09 was blocked by this machine's
+   permission settings; it waits for Brandon to do the download himself or allow it.
 Brandon wants plain-language before/after reports for every experiment.
 
+## Latest: v7 -> `submissions/v7.csv`
 
-## Latest: v6 → `submissions/v6.csv`
+- Round 14: v6 labelled 85% of the 114 s graded before the 2nd-half kickoff as live; now all D.
+  7 fewer possessions (330), phase_agree 0.733 (noise), kickoff restart offset -14.8 -> 0.04 s.
+
+## Previous: v6 → `submissions/v6.csv`
 
 - v4 (round 6): a still (placed) ball counts as dead-ball evidence, and ball control is neutral
   for live vs D on still frames. Placed-ball restarts went from 6.4 s early to 0.5 s early.
