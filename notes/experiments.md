@@ -186,3 +186,20 @@ DROPPED: every variant lowers phase_agree (0.733 -> 0.721-0.724). Why: K_TEAM is
 | e19b (dead 3) | 2.47 | 0.724 | 0.598 | 359 | 0.195 | 0.290 | 0.176 | 0.333 |
 | e19c (live 2, dead 3) | 4.36 | 0.723 | 0.591 | 365 | 0.200 | 0.285 | 0.137 | 0.333 |
 | e19d (live 3, dead 3) | 5.99 | 0.724 | 0.598 | 366 | 0.199 | 0.284 | 0.137 | 0.333 |
+
+## round 16: held-out robustness on two other games (Metrica sample games 1, 2) — 2026-11-09
+
+What: src/other_games.py runs v7's tag-free core (no Smart Tagging there: set-piece windows, tagged restart penalty and pre-kickoff rule off) on Metrica's public sample games and scores it with the official possession_metrics against labels derived from Metrica's hand-coded events (rules in notes/other_games.md, fixed before any result; labels look football-plausible: 352 / 311 possessions, 11.4 / 13.3 s, D 0.30 / 0.26). Then each kept change is undone one at a time, and the dropped tag-free ideas are switched on. Different labelling convention from the hackathon, so compare rows only with each other; with ~300 possessions per game, spellF1 gaps below ~0.01-0.02 are noise. Used to measure robustness only; no BAR-ATH setting changed.
+Findings: the flight gate (v2) generalises clearly (spellF1 -0.040 / -0.009 and macroF1 -0.031 / -0.045 without it). Team-shape context (v3) generalises (spellF1 -0.012 / -0.013 without it). The throw-in hold (v6) never fires there (identical output: Metrica's ball is not tracked beyond the touchline). The still-ball change (v4) is a wash: spellF1 +0.010 / +0.003 without it, macroF1 -0.017 / +0.010; v7 calls ~4 points more D than these labels (part of that may be the labels, whose dead stretches only start at a coded stoppage). Dropped ideas stay dropped: 3-phase D chain clearly worse (-0.033 / -0.026), live 2-phase chain and kickoff formation neutral. K_TEAM calibrates to 4.4 / 7.7 there (1.70 on BAR-ATH; the ball is seen on only ~60% of frames).
+
+| run | game | spell_f1_mean | macro_f1 | alive_dead_f1 | team_acc_both_alive | gt_poss | pred_poss | pred_share_D (gt) |
+|---|---|---|---|---|---|---|---|---|
+| v7 core | 1 | 0.544 | 0.789 | 0.903 | 0.872 | 352 | 303 | 0.336 (0.295) |
+| v7 core | 2 | 0.485 | 0.776 | 0.892 | 0.896 | 311 | 313 | 0.306 (0.264) |
+| no throw-in hold (v5) | 1 / 2 | 0.544 / 0.485 | 0.789 / 0.776 | same | same | | 303 / 313 | same |
+| no still ball (v3-like) | 1 / 2 | 0.554 / 0.488 | 0.772 / 0.786 | 0.895 / 0.900 | 0.875 / 0.896 | | 317 / 318 | 0.302 / 0.292 |
+| no context (v2-like) | 1 / 2 | 0.532 / 0.472 | 0.784 / 0.772 | 0.903 / 0.892 | 0.866 / 0.890 | | 303 / 313 | 0.336 / 0.306 |
+| no flight gate | 1 / 2 | 0.504 / 0.476 | 0.758 / 0.731 | 0.902 / 0.891 | 0.825 / 0.826 | | 302 / 313 | 0.334 / 0.301 |
+| live 2-phase (e19a) | 1 / 2 | 0.547 / 0.481 | 0.786 / 0.772 | 0.904 / 0.889 | 0.869 / 0.897 | | 307 / 314 | 0.325 / 0.304 |
+| dead 3-phase (e19b) | 1 / 2 | 0.511 / 0.459 | 0.779 / 0.754 | 0.906 / 0.894 | 0.863 / 0.879 | | 321 / 337 | 0.294 / 0.248 |
+| kickoff formation (e17) | 1 / 2 | 0.544 / 0.482 | 0.788 / 0.775 | 0.903 / 0.891 | 0.872 / 0.896 | | 303 / 311 | 0.336 / 0.307 |

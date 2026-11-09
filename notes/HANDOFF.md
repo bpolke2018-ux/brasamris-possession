@@ -6,9 +6,11 @@ Best version: **v7** (`python -m src.run` -> submissions/v7.csv, commit 7d29b39 
 "graded frames before the half's kickoff tag are dead" (round 14). Round 13 (kickoff formation, e17)
 decided: dropped. Next, in order:
 1. **HSMM (step 3)**: done, round 15, dropped (duration prior is cancelled by the K_TEAM re-calibration).
-2. **Other-games test set (round 16)**: Brandon downloaded metrica-sports/sample-data himself into
-   D:\Barcelona Hackathon\other_games (outside the repo). Next: loader + run v7 there as a held-out
-   robustness test, aggregates only; never use it to pick this match's settings beyond robustness.
+2. **Other-games test (round 16)**: done. `python -m src.other_games` (Metrica sample games 1-2 in
+   D:\Barcelona Hackathon\other_games, event-derived labels, notes/other_games.md). Flight gate and
+   context generalise; throw-in hold inert there; still-ball change is a wash (open question for
+   Brandon: keep it, it helped BAR-ATH's restart timing). Possible next: Sample_Game_3 (EPTS format,
+   JSON events), a block bootstrap for the spellF1 gaps, then the final single public-window sanity score.
 Brandon wants plain-language before/after reports for every experiment.
 
 ## Latest: v7 -> `submissions/v7.csv`
