@@ -1,10 +1,12 @@
-"""Held-out robustness test on Metrica Sports' public sample games 1 and 2.
+"""Held-out robustness test on Metrica Sports' public sample games 1, 2 and 3.
 
-    python -m src.other_games                          # v7's tag-free core on both games
+    python -m src.other_games                          # v7's tag-free core on games 1-3
     python -m src.other_games --set still_nats=0       # the same with a change undone
 
 Data: github.com/metrica-sports/sample-data, downloaded by Brandon to ../other_games (outside the
 repo, never committed). Tracking at 25 fps in normalised coordinates; hand-coded event data.
+Games 1-2: CSV tracking per team and CSV events. Game 3: EPTS text tracking (player slots remapped
+at substitutions, per the metadata) and JSON events, converted to the same event table.
 
 Ground truth here is DERIVED from Metrica's event data (rules in notes/other_games.md and in
 gt_labels below). It is a different labelling convention from the hackathon's, so absolute numbers
@@ -47,12 +49,71 @@ def _read_side(path):
     return t["Frame"].to_numpy(), t["Period"].to_numpy(), xy, ball
 
 
+def _speeds(px, py, per):
+    """No tracker speed field: per-player displacement speed, smoothed over +/- 2 frames."""
+    step = np.full(px.shape, np.nan, np.float32)
+    step[1:] = np.hypot(np.diff(px, axis=0), np.diff(py, axis=0)) * FPS
+    step[1:][per[1:] != per[:-1]] = np.nan
+    return np.stack([features.nan_smooth(step[:, k], 2) for k in range(px.shape[1])], 1)
+
+
+def _parse_epts(g):
+    """Game 3: EPTS text tracking; the 22 slots map to different players in each segment."""
+    import xml.etree.ElementTree as ET
+    d = os.path.join(DATA, "Sample_Game_{}".format(g))
+    root = ET.parse(os.path.join(d, "Sample_Game_{}_metadata.xml".format(g))).getroot()
+    team_ids = [t.get("id") for t in root.iter("Team")]          # first team = home
+    players = [p.get("id") for p in root.iter("Player")]
+    team = np.array([team_ids.index(p.get("teamId")) for p in root.iter("Player")], np.int8)
+    chan = {c.get("id"): players.index(c.get("playerId")) for c in root.iter("PlayerChannel")}
+    specs = []
+    for spec in root.iter("DataFormatSpecification"):
+        refs = [r.get("playerChannelId") for r in spec.iter("PlayerChannelRef")]
+        slots = [chan[r] for r in refs[0::2]]                     # x channel of each pair
+        specs.append((int(spec.get("startFrame")), int(spec.get("endFrame")), slots))
+    specs.sort()
+    n = max(e for _, e, _ in specs)
+    px = np.full((n, len(players)), np.nan, np.float32)
+    py = np.full((n, len(players)), np.nan, np.float32)
+    bx = np.full(n, np.nan, np.float32)
+    by = np.full(n, np.nan, np.float32)
+    si = 0
+    with open(os.path.join(d, "Sample_Game_{}_tracking.txt".format(g))) as handle:
+        for line in handle:
+            parts = line.rstrip().split(":")
+            fr = int(parts[0])
+            while specs[si][1] < fr:
+                si += 1
+            slots = specs[si][2]
+            for k, grp in enumerate(parts[1].split(";")):
+                x, y = grp.split(",")[:2]
+                if x != "NaN" and y != "NaN":
+                    px[fr - 1, slots[k]], py[fr - 1, slots[k]] = float(x), float(y)
+            b = parts[2].split(",")
+            if b[0] != "NaN" and b[1] != "NaN":
+                bx[fr - 1], by[fr - 1] = float(b[0]), float(b[1])
+    ev = events(g)
+    p2 = int(ev.loc[ev["Period"] == 2, "Start Frame"].min()) - 1
+    per = np.where(np.arange(n) < p2, 1, 2)
+    return px, py, team, bx, by, per
+
+
 def load_tracking(g):
     """Arrays in the src/atd.py layout plus `period`; cached under cache/ (gitignored)."""
     path = os.path.join(atd.CACHE_DIR, "metrica_g{}.npz".format(g))
     if os.path.isfile(path):
         with np.load(path) as z:
             return {k: z[k] for k in z.files}
+    if g == 3:
+        px, py, team, bx, by, per = _parse_epts(g)
+        assert np.nanmax(px) < 1.5 and np.nanmin(px) > -0.5, "expected normalised coordinates"
+        px, py = px * PITCH[0], py * PITCH[1]
+        out = dict(px=px, py=py, ps=_speeds(px, py, per).astype(np.float32), team=team,
+                   bx=bx * PITCH[0], by=by * PITCH[1], bs=np.full(len(px), np.nan, np.float32),
+                   period=per.astype(np.int8))
+        os.makedirs(atd.CACHE_DIR, exist_ok=True)
+        np.savez(path, **out)
+        return out
     d = os.path.join(DATA, "Sample_Game_{}".format(g))
     fh, per, xh, ball = _read_side(os.path.join(d, "Sample_Game_{}_RawTrackingData_Home_Team.csv".format(g)))
     fa, _, xa, _ = _read_side(os.path.join(d, "Sample_Game_{}_RawTrackingData_Away_Team.csv".format(g)))
@@ -61,11 +122,7 @@ def load_tracking(g):
     px = (xy[:, :, 0] * PITCH[0]).astype(np.float32)
     py = (xy[:, :, 1] * PITCH[1]).astype(np.float32)
     team = np.array([0] * xh.shape[1] + [1] * xa.shape[1], np.int8)
-    # No tracker speed field: per-player displacement speed, smoothed over +/- 2 frames.
-    step = np.full(px.shape, np.nan, np.float32)
-    step[1:] = np.hypot(np.diff(px, axis=0), np.diff(py, axis=0)) * FPS
-    step[1:][per[1:] != per[:-1]] = np.nan
-    ps = np.stack([features.nan_smooth(step[:, k], 2) for k in range(px.shape[1])], 1)
+    ps = _speeds(px, py, per)
     out = dict(px=px, py=py, ps=ps.astype(np.float32), team=team,
                bx=(ball[:, 0] * PITCH[0]).astype(np.float32),
                by=(ball[:, 1] * PITCH[1]).astype(np.float32),
@@ -78,22 +135,44 @@ def load_tracking(g):
 STOP_AT_END = ("OFFSIDE", "HAND BALL", "END HALF", "REFEREE HIT")
 
 
+def events(g):
+    """Event table with columns Team (Home/Away), Type, Subtype, Period, Start Frame, End Frame."""
+    d = os.path.join(DATA, "Sample_Game_{}".format(g))
+    if g != 3:
+        return pd.read_csv(os.path.join(d, "Sample_Game_{}_RawEventsData.csv".format(g)))
+    import json
+    with open(os.path.join(d, "Sample_Game_{}_events.json".format(g))) as handle:
+        data = json.load(handle)["data"]
+    home = "FIFATMA"            # first team in the metadata (Team A), as in _parse_epts
+
+    def sub(e):
+        s = e["subtypes"]
+        if s is None:
+            return np.nan
+        return "-".join(t["name"] for t in (s if isinstance(s, list) else [s]))
+    return pd.DataFrame({
+        "Team": ["Home" if (e["team"] or {}).get("id") == home else "Away" for e in data],
+        "Type": [e["type"]["name"] for e in data],
+        "Subtype": [sub(e) for e in data],
+        "Period": [e["period"] for e in data],
+        "Start Frame": [e["start"]["frame"] for e in data],
+        "End Frame": [e["end"]["frame"] for e in data]})
+
+
 def gt_labels(g, n):
     """(labels H/A/D/X per frame, blocks [(name, first, last)]) from the event data.
 
     Rules (football definitions, fixed before looking at any result):
       * graded: from each period's first KICK OFF to the last event end of that period; else X.
-      * the team in possession is the team of the latest PASS / SHOT / SET PIECE / RECOVERY
-        (a possession changes when the other team gains control; CHALLENGE and BALL LOST alone
-        do not change it).
+      * the team in possession is the team of the latest PASS / CARRY / SHOT / SET PIECE /
+        RECOVERY (a possession changes when the other team gains control; CHALLENGE and BALL
+        LOST alone do not change it). CARRY exists only in game 3's events.
       * dead ball from a stoppage -- BALL OUT (its end), a SHOT that goes out or is a goal (its
         end), FAULT RECEIVED (its start), a BALL LOST by offside / hand ball / end of half /
         referee hit (its end) -- to the next restart: a SET PIECE or a GOAL KICK pass. A stoppage
         is ignored if live play (a non-restart on-ball event) comes first (e.g. advantage).
     """
-    ev = pd.read_csv(os.path.join(DATA, "Sample_Game_{}".format(g),
-                                  "Sample_Game_{}_RawEventsData.csv".format(g)))
-    ev = ev.sort_values("Start Frame", kind="stable").reset_index(drop=True)
+    ev = events(g).sort_values("Start Frame", kind="stable").reset_index(drop=True)
     lab = np.full(n, "X", dtype="<U1")
     blocks = []
     for p in sorted(ev["Period"].unique()):
@@ -107,7 +186,7 @@ def gt_labels(g, n):
             team = "H" if r["Team"] == "Home" else "A"
             s, t = int(r["Start Frame"]) - 1, int(r["End Frame"]) - 1
             restart = typ == "SET PIECE" or (typ == "PASS" and sub == "GOAL KICK")
-            if typ in ("PASS", "SHOT", "SET PIECE", "RECOVERY"):
+            if typ in ("PASS", "CARRY", "SHOT", "SET PIECE", "RECOVERY"):
                 points.append((s, team, "restart" if restart else "own"))
             if typ == "BALL OUT" or (typ == "SHOT" and ("OUT" in sub or "GOAL" in sub)):
                 points.append((t, "D", "stop"))
@@ -166,8 +245,10 @@ KEYS = ["spell_f1_mean", "macro_f1", "alive_dead_f1", "team_acc_both_alive",
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--set", nargs="*", default=[], metavar="KEY=VALUE")
-    parser.add_argument("--games", default="1,2")
+    parser.add_argument("--games", default="1,2,3")
     parser.add_argument("--name", default="v7 core")
+    parser.add_argument("--save", help="tag: save predicted labels to cache/other_games/<tag>_g<g>.npy "
+                                       "(labels only; for src/other_games_boot.py)")
     args = parser.parse_args()
     for item in args.set:
         key, value = item.split("=", 1)
@@ -187,6 +268,11 @@ def main():
         n = len(a["bx"])
         gt, blocks = gt_labels(g, n)
         pred, k = predict(a, blocks)
+        if args.save:
+            out = os.path.join(atd.CACHE_DIR, "other_games")
+            os.makedirs(out, exist_ok=True)
+            np.save(os.path.join(out, "{}_g{}.npy".format(args.save, g)), pred)
+            np.save(os.path.join(out, "gt_g{}.npy".format(g)), gt)
         r = pm.evaluate(pm.label_codes(gt), pm.label_codes(pred))
         graded = gt != "X"
         r["gt_share_D"] = float(np.mean(gt[graded] == "D"))

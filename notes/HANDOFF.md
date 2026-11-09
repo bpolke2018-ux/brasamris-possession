@@ -6,11 +6,12 @@ Best version: **v7** (`python -m src.run` -> submissions/v7.csv, commit 7d29b39 
 "graded frames before the half's kickoff tag are dead" (round 14). Round 13 (kickoff formation, e17)
 decided: dropped. Next, in order:
 1. **HSMM (step 3)**: done, round 15, dropped (duration prior is cancelled by the K_TEAM re-calibration).
-2. **Other-games test (round 16)**: done. `python -m src.other_games` (Metrica sample games 1-2 in
-   D:\Barcelona Hackathon\other_games, event-derived labels, notes/other_games.md). Flight gate and
-   context generalise; throw-in hold inert there; still-ball change is a wash (open question for
-   Brandon: keep it, it helped BAR-ATH's restart timing). Possible next: Sample_Game_3 (EPTS format,
-   JSON events), a block bootstrap for the spellF1 gaps, then the final single public-window sanity score.
+2. **Other-games test (rounds 16-17)**: done. `python -m src.other_games` (Metrica sample games 1-3 in
+   D:\Barcelona Hackathon\other_games, event-derived labels, notes/other_games.md) and
+   `python -m src.other_games_boot v7 <tags>` (paired bootstrap). Context and flight gate generalise
+   (intervals exclude 0); throw-in hold inert there; the still-ball rule costs ~0.006 spellF1 there
+   (borderline) but is KEPT per coordinator (helps BAR-ATH restart timing); Brandon may override.
+3. **Held:** the one-time public-window sanity score, only once the final version is frozen.
 Brandon wants plain-language before/after reports for every experiment.
 
 ## Latest: v7 -> `submissions/v7.csv`

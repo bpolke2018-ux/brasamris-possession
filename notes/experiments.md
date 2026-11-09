@@ -203,3 +203,25 @@ Findings: the flight gate (v2) generalises clearly (spellF1 -0.040 / -0.009 and 
 | live 2-phase (e19a) | 1 / 2 | 0.547 / 0.481 | 0.786 / 0.772 | 0.904 / 0.889 | 0.869 / 0.897 | | 307 / 314 | 0.325 / 0.304 |
 | dead 3-phase (e19b) | 1 / 2 | 0.511 / 0.459 | 0.779 / 0.754 | 0.906 / 0.894 | 0.863 / 0.879 | | 321 / 337 | 0.294 / 0.248 |
 | kickoff formation (e17) | 1 / 2 | 0.544 / 0.482 | 0.788 / 0.775 | 0.903 / 0.891 | 0.872 / 0.896 | | 303 / 311 | 0.336 / 0.307 |
+
+## round 17: Metrica game 3 added, paired bootstrap on the gaps — 2026-11-09
+
+What: src/other_games.py now also reads Metrica game 3 (EPTS text tracking with player slots remapped at each substitution; JSON events converted to the same table; CARRY counts as an on-ball possession event, the same rule as a pass). Event-derived labels for game 3: 376 possessions, 12.0 s, D 0.21; v7's team accuracy there is 0.90, which confirms the home/away mapping. New src/other_games_boot.py: paired bootstrap on the gap between two versions. Each draw resamples the ground-truth possessions (spellF1) or ground-truth segments (macroF1) of each game, the same picks for every version, as the official scorer's own bootstrap does (predicted-possession count fixed), and averages the three games; 2000 draws, 5-95% interval. Caveat: with 3 games it does not capture game-to-game variation, and holding the predicted count fixed understates the spread a little.
+Result: v7 core averages spellF1 0.502 / macroF1 0.773 over the three games. Gaps when a change is undone (negative = v7 is better):
+- team-shape context: spellF1 -0.014 [-0.024, -0.005] -> it generalises.
+- flight gate: macroF1 -0.033 [-0.042, -0.025] -> it generalises; its spellF1 gap is uncertain (game 3 goes the other way).
+- still ball (v4): spellF1 +0.006 [+0.000, +0.012], macroF1 0.000 [-0.016, +0.013] -> on these games it costs a little spellF1 (borderline). Kept on the coordinator's instruction (it helps BAR-ATH's restart timing, and these labels start a dead ball only at a coded stoppage, so they may under-count dead time); flagged for Brandon.
+- throw-in hold: exactly 0 (never fires; the ball is not tracked beyond the line here). Kickoff formation: ~0.
+- duration chains (round 15): dead 3-phase spellF1 -0.031 [-0.042, -0.020]; live 2-phase macroF1 -0.008 [-0.014, -0.002]. Confirms they stay dropped.
+No BAR-ATH setting changed.
+
+| version (undone / added) | game 3 spellF1 | game 3 macroF1 | 3-game spellF1 gap [5-95%] | 3-game macroF1 gap [5-95%] |
+|---|---|---|---|---|
+| v7 core (reference) | 0.478 | 0.754 | (0.502) | (0.773) |
+| no throw-in hold | 0.478 | 0.754 | +0.000 | +0.000 |
+| no still ball | 0.482 | 0.761 | +0.006 [+0.000, +0.012] | +0.000 [-0.016, +0.013] |
+| no context | 0.459 | 0.747 | -0.014 [-0.024, -0.005] | -0.005 [-0.010, +0.000] |
+| no flight gate | 0.490 | 0.730 | -0.012 [-0.032, +0.007] | -0.033 [-0.042, -0.025] |
+| live 2-phase | 0.465 | 0.737 | -0.004 [-0.011, +0.002] | -0.008 [-0.014, -0.002] |
+| dead 3-phase | 0.444 | 0.714 | -0.031 [-0.042, -0.020] | -0.024 [-0.037, -0.013] |
+| kickoff formation | 0.477 | 0.753 | -0.001 [-0.003, +0.000] | -0.001 [-0.001, -0.000] |
