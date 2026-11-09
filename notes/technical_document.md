@@ -152,6 +152,8 @@ the structure check is essential.
 | **tagged team constrains the restart (v5)** | **0.735** | 338 | yes; 0.525 → 0.580 in the 20 s after tagged restarts |
 | **throw-in hold = dead (v6)** | 0.734 | 337 | yes; restart within 1 s of the ball re-entering: 13% → 47% (15 throw-ins) |
 | ball filled from aligned broadcast tracking | 0.726 | 339 | no |
+| kickoff formation (both teams in own halves) = dead | 0.732 | 335 | no (covers part of one stretch, splits it) |
+| **graded frames before the half's kickoff = dead (v7)** | 0.733 | 330 | yes; that 114 s stretch was 85% live in v6 |
 
 ## 6. Possession rules implemented
 
@@ -202,11 +204,11 @@ tuned.
 ```
 pip install -r requirements.txt                    # numpy, pandas
 # data: ./data, ../more-than-a-hack-2027/data, or MTAH_DATA_DIR
-python -m src.run                                  # -> submissions/v6.csv (deterministic)
-python evaluation/validate_submission.py submissions/v6.csv
-python -m src.proxy_eval submissions/v6.csv        # development check, no ground truth
-python -m src.restart_report submissions/v6.csv    # placed-ball restart check
-python -m src.restart_team_report submissions/v6.csv
+python -m src.run                                  # -> submissions/v7.csv (deterministic)
+python evaluation/validate_submission.py submissions/v7.csv
+python -m src.proxy_eval submissions/v7.csv        # development check, no ground truth
+python -m src.restart_report submissions/v7.csv    # placed-ball restart check
+python -m src.restart_team_report submissions/v7.csv
 ```
 
 The first run parses the tracking into `cache/` (1–2 minutes). Later runs take about a minute. The

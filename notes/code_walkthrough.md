@@ -1,7 +1,7 @@
 # Code walkthrough: one frame's journey
 
 This note follows a single video frame from the raw tracking file to the letter (`H`, `A` or `D`)
-we write for it in `submissions/v6.csv`. Each stop shows a short excerpt of the real code, what it
+we write for it in `submissions/v7.csv`. Each stop shows a short excerpt of the real code, what it
 does, and why it exists: which football problem or metric issue it solves, with the experiment
 number from `notes/experiments.md`.
 

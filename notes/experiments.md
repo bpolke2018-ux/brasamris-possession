@@ -159,3 +159,17 @@ Second attempt (round 12's test had a bug: NaN slots counted as players on the w
 | e17a (0.15) | 0.732 | 0.580 | 335 | 0.341 | 1.000 | 0.571 | 0.00 |
 | e17b (0.4) | 0.732 | 0.580 | 335 | 0.341 | 1.000 | 0.571 | 0.00 |
 
+
+**Round 13 decision (2026-11-09): e17 DROPPED** (kickoff_nats stays 0, code kept). Per-episode aggregates: of the 7 formation episodes, 3 sit in the 114 s of graded play before the 2nd-half kickoff (players warming up in their own halves, v6 D 0.00 there), and the other 4 at kickoffs after goals, where v6 is already 0.68-0.99 D. So e17's gain is mostly that one pre-kickoff stretch, and it only covers 19 s of it: it splits the stretch into more pieces (label changes there 3 -> 6) and lowers live_after at placed-ball kicks (0.993 -> 0.973). Round 14 fixes the real problem directly.
+
+## round 14: before the half's kickoff the ball is dead — 2026-11-09
+
+What: graded frames from the start of a half's grading up to that half's Kick Off (Start) Smart Tagging tag get 50 nats/frame of D evidence (a hard rule; prekick_nats in src/model.py, prekick_mask in src/run.py). Football: by the Laws the ball is not in play before the kickoff. The 2nd half is graded from 114 s before its kickoff tag (games.half_video_blocks; FAQ.md says these frames are D, public documentation, not ground truth); the 1st half's grading starts at its kickoff, so nothing changes there. Found because v6 labelled 85% of that stretch live (H 0.76, A 0.09) with 3 label changes. New check: pre-kickoff share (scratch, aggregates; by construction 1.0 for e18, so not evidence on its own).
+KEPT e18a as **v7**. Everything else unchanged; phase_agree within noise (it only scores H/A frames); 7 fewer possessions (2 spurious ones removed, the rest from K_TEAM re-calibration, 1.70). The kick lands where the formation breaks (ko_off_med -14.8 -> 0.04 s). e18b (with e17's 0.15 on top) moves the kickoff switch 6 s late and lowers live_after: dropped.
+
+| run | phase_agree | phase_agree_20s_after_tagged_restart | possessions | short_lt2s | share_D | prekick_D | ko_d_during | ko_off_med_s | pbk_live_after |
+|---|---|---|---|---|---|---|---|---|---|
+| v6 | 0.734 | 0.580 | 337 | 0.157 | 0.335 | 0.15 | 0.499 | -14.76 | 0.993 |
+| e17a (formation 0.15) | 0.732 | 0.580 | 335 | 0.149 | 0.341 | 0.37 | 1.000 | 0.00 | 0.973 |
+| **e18a = v7** (prekick 50) | 0.733 | 0.580 | 330 | 0.148 | 0.351 | 1.00 | 0.928 | 0.04 | 0.993 |
+| e18b (prekick + formation) | 0.732 | 0.580 | 331 | 0.151 | 0.352 | 1.00 | 1.000 | 6.32 | 0.973 |

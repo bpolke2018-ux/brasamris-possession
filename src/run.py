@@ -1,6 +1,6 @@
 """Build a submission from the provided data. Deterministic: no randomness anywhere.
 
-    python -m src.run                                   # -> submissions/v6.csv
+    python -m src.run                                   # -> submissions/v7.csv
     python -m src.run --set persist_frames=10 --out cache/exp.csv
     python -m src.run --set POSSESSION_S=20 --out cache/exp.csv   # model.py constants too
 
@@ -16,7 +16,7 @@ import numpy as np
 from src import atd, context, features, model, tagging
 from games import GAME, half_video_blocks
 
-OUT = os.path.join(atd.ROOT, "submissions", "v6.csv")
+OUT = os.path.join(atd.ROOT, "submissions", "v7.csv")
 
 
 TEAM_TAG = {"barcelona": 1.0, "atletic club": -1.0}     # +1 home (H), -1 away (A)
@@ -65,6 +65,20 @@ def restart_penalty(n, cfg=model.CONFIG):
         hi = max(s + int(cfg["sp_restart_after_s"] * fps), 0)
         pen[lo:hi, 1 if sign > 0 else 0] = cfg["sp_restart_pen"]   # forbid the other side
     return pen
+
+
+def prekick_mask(n):
+    """Bool per frame: graded frames of a half before its Kick Off (Start) tag (ball not yet in
+    play). Only the half-start kickoffs; kickoffs after goals follow a D stretch anyway."""
+    m = np.zeros(n, bool)
+    starts = [e["start_frame"] for e in tagging.load()
+              if (e["code"] or "").strip().lower() == "set pieces"
+              and (e["tags"].get("Type") or "").strip().lower() == "kick off (start)"]
+    for _, first, last in half_video_blocks(GAME):
+        for k in starts:
+            if first < k <= last:
+                m[first:k] = True
+    return m
 
 
 def load_tracking(cfg=model.CONFIG):
@@ -157,7 +171,8 @@ def main():
     team_llr = model.team_evidence(f, model.CONFIG)
     sp_dead, sp_team = set_piece_evidence(n)
     kickoff = model.kickoff_formation(a, f) if model.CONFIG["kickoff_nats"] else None
-    dead = model.dead_evidence(f, sp_dead, kickoff)
+    prekick = prekick_mask(n) if model.CONFIG["prekick_nats"] else None
+    dead = model.dead_evidence(f, sp_dead, kickoff, prekick)
 
     extra = model.CONFIG["sp_team_nats"] * sp_team
     if model.CONFIG["context"]:

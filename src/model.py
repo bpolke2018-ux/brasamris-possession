@@ -124,6 +124,11 @@ CONFIG = {
     # Aggregate check: 7 such episodes, covering all 5 graded kickoff tags; v6 calls only half of
     # their frames D. kickoff_nats per frame for D, and ball control is neutral there. 0 = off.
     "kickoff_nats": 0.0,
+    # Before the half's kickoff: by the Laws the ball is not in play until the kick, so graded
+    # frames from the start of a half's grading up to its Kick Off (Start) Smart Tagging tag are
+    # D. prekick_nats per frame of D evidence (50 = a hard rule; ball control cannot outvote it).
+    # The tag time base is checked against both kickoffs (DATA.md). 0 = off (v1-v6).
+    "prekick_nats": 50.0,     # v7
 }
 
 
@@ -222,7 +227,7 @@ def team_evidence(f, cfg=CONFIG):
     return w * np.tanh(margin / cfg["margin_scale_m"])
 
 
-def dead_evidence(f, set_piece_mask, kickoff=None):
+def dead_evidence(f, set_piece_mask, kickoff=None, prekick=None):
     """D log-score per frame relative to the live states."""
     seen_in = f["ball_seen"] & ~f["ball_out"]
     z = np.clip((WALK_SPEED - np.nan_to_num(f["mean_speed"], nan=WALK_SPEED)) / SPEED_SCALE, -3, 3)
@@ -239,6 +244,8 @@ def dead_evidence(f, set_piece_mask, kickoff=None):
         out += CONFIG["hold_nats"] * throw_hold(f)
     if CONFIG["kickoff_nats"] and kickoff is not None:
         out += CONFIG["kickoff_nats"] * kickoff
+    if CONFIG["prekick_nats"] and prekick is not None:
+        out += CONFIG["prekick_nats"] * prekick
     return out
 
 
