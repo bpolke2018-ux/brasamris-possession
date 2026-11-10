@@ -280,3 +280,15 @@ Metrica held out: spellF1 +0.050 [+0.035, +0.063], macroF1 +0.026 [+0.018, +0.03
 | 20b learned dead (with ball missing) | +0.080 [+0.064, +0.095] | +0.037 [+0.017, +0.055] | 0.749 | 0.587 | 304 | 0.404 | 0.055 | 0.059 | 0.993 | -0.88 |
 | 20c = 20b + hand still term | — | — | 0.753 | 0.591 | 298 | 0.414 | 0.114 | 0.137 | 0.993 | -0.88 |
 | 20d learned dead (no ball missing) | +0.050 [+0.035, +0.063] | +0.026 [+0.018, +0.035] | 0.747 | 0.585 | 294 | 0.420 | 0.358 | 0.294 | 0.914 | 6.20 |
+
+## round 21: HMM transition rates measured on the Metrica labels — 2026-11-09
+
+What: the two transition priors that are not already validated, measured on the event-derived Metrica labels (aggregates): the share of possessions ending in a stoppage 0.186 / 0.214 / 0.203 (pooled 0.20; v8 uses 1/3) and the mean dead-ball stretch 25.8 / 22.4 / 15.8 s (pooled 21 s; v8 uses 30 s). Caveat: the event rules miss some stoppages (e.g. free kicks with no coded foul), ~70 dead stretches per game against ~90 coded set pieces, so both measured values may run low. Tested each alone and both on both benches.
+Result: no effect. Metrica gaps within +/-0.003 (all intervals cover 0); BAR-ATH unchanged (phase_agree 0.742-0.743, 315-316 possessions, D 0.379-0.380, every restart check identical). As in round 11, these priors are swamped by the per-frame evidence. NO CHANGE: v8 keeps its football priors (a neutral swap buys nothing, and the measured values are probably biased low).
+
+| run | Metrica spellF1 gap [5-95%] | macroF1 gap [5-95%] | phase_agree | possessions | share_D |
+|---|---|---|---|---|---|
+| v8 (share 1/3, dead 30 s) | (0.512) | (0.776) | 0.743 | 314 | 0.380 |
+| share 0.20 | +0.001 [-0.002, +0.003] | -0.001 [-0.003, +0.001] | 0.742 | 316 | 0.379 |
+| dead 21 s | -0.001 [-0.004, +0.001] | -0.000 [-0.000, -0.000] | 0.743 | 315 | 0.380 |
+| both | +0.000 [-0.002, +0.002] | -0.000 [-0.002, +0.001] | 0.742 | 316 | 0.379 |
