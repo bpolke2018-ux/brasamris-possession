@@ -292,3 +292,17 @@ Result: no effect. Metrica gaps within +/-0.003 (all intervals cover 0); BAR-ATH
 | share 0.20 | +0.001 [-0.002, +0.003] | -0.001 [-0.003, +0.001] | 0.742 | 316 | 0.379 |
 | dead 21 s | -0.001 [-0.004, +0.001] | -0.000 [-0.000, -0.000] | 0.743 | 315 | 0.380 |
 | both | +0.000 [-0.002, +0.002] | -0.000 [-0.002, +0.001] | 0.742 | 316 | 0.379 |
+
+## round 20e: 20d + the restart rule -> v9 — 2026-11-10
+
+What: 20d's learned dead side plus a restart exception fixed from football logic before the run (model.kick_from_still): a ball seen still for >= 1 s (the existing still test, < 1.5 m/s over +/- 0.5 s) and struck (> 6 m/s, a pass) within 1 s counts as live for the next 3 s, at 1 nat/frame against D (twice what all other dead clues can add together, i.e. a rule). Laws: a restart ball is in play once it is kicked and clearly moves; a new stoppage within 3 s of a restart is rare. Scale re-selected leave-one-game-out with the rule on (`python -m src.learned --dead-scale --no-missing --restart-live` -> models/learned_nomiss_rl.json; same choices as 20d). Control: v8 + the rule alone.
+Metrica: the rule never fires there (the ball is blanked in stoppages, so no visible still ball is struck): 20e = 20d, spellF1 +0.050 [+0.035, +0.063], macroF1 +0.026 [+0.018, +0.035]. v8 + rule alone: identical to v8 on both benches except live-after-kick 0.992 -> 0.999 (no other change).
+BAR-ATH 20e: phase_agree 0.747, after-tagged-restart 0.585, short 0.105, D 0.419, D before placed-ball kicks 0.267 -> 0.349, placed-ball restart within 1 s 0.294 -> 0.333, kickoff restart switch +0.12 -> -0.04 s (20d: +6.2 s), kickoff D 0.928 -> 0.951, throw-ins 6/15 -> 7/15. Live 1-3 s after a placed-ball kick 0.961 (v8 0.992): the rule fires on 18 of the 51 placed-ball kicks (its still test is stricter than the check's), and the gap comes from the same 2 of 51 kicks that are not fully live in v8 either; not changed to fit the check. 295 possessions (v8 314), just under the usual 300-400, because more time is dead (D 0.42; ball in play ~58% of graded time, plausible).
+KEPT as **v9**, with two judgement calls flagged for Brandon (live-after-kick on 2 kicks; 295 possessions). v8.csv kept.
+
+| run | Metrica spellF1 gap [5-95%] (held out) | macroF1 gap | phase_agree | after_restart_20s | possessions | share_D | pbk_d_before | pbk_restart_1s | pbk_live_after | ko_off_med_s | throw_restart_1s |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| v8 | (0.512) | (0.776) | 0.743 | 0.579 | 314 | 0.380 | 0.267 | 0.294 | 0.992 | 0.12 | 0.400 |
+| v8 + restart rule | +0.000 | +0.000 | 0.743 | 0.579 | 314 | 0.380 | 0.267 | 0.294 | 0.999 | 0.12 | 0.400 |
+| 20d | +0.050 [+0.035, +0.063] | +0.026 [+0.018, +0.035] | 0.747 | 0.585 | 294 | 0.420 | 0.358 | 0.294 | 0.914 | 6.20 | 0.467 |
+| **20e = v9** | +0.050 [+0.035, +0.063] | +0.026 [+0.018, +0.035] | 0.747 | 0.585 | 295 | 0.419 | 0.349 | 0.333 | 0.961 | -0.04 | 0.467 |

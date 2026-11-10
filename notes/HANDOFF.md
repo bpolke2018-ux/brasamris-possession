@@ -2,12 +2,13 @@
 
 ## EXACT RESUME POINT (updated 2026-11-09)
 
-Best version: **v8** (`python -m src.run` -> submissions/v8.csv): v7 with WALK_SPEED 1.4 m/s, the
-midpoint of live/dead team speeds measured on the three Metrica games (round 18). v7 = v6 plus
-"graded frames before the half's kickoff tag are dead" (round 14).
+Best version: **v9** (`python -m src.run` -> submissions/v9.csv): v8 with the dead-ball clues
+(speed, ball fast, ball still) learned on the 3 Metrica games (models/learned_nomiss_rl.json, ball
+missing NOT learned) plus the restart rule (3 s live after a still ball is struck), round 20e.
+v8 = v7 with WALK_SPEED 1.4 (round 18). v8.csv is kept for comparison.
 Keep rule (coordinator, 2026-11-09): a change is kept only if it hurts neither the Metrica paired
-bootstrap (`python -m src.other_games --save tag` then `python -m src.other_games_boot v8 tag`; re-save
-the reference as v8 first) nor the BAR-ATH proxy / structure / restart checks.
+bootstrap (`python -m src.other_games --save tag` then `python -m src.other_games_boot v9 tag`; the v9
+reference on Metrica is the leave-one-game-out run, cache/other_games/v9_g*.npy = learn_dead_nm_rl_g*.npy) nor the BAR-ATH proxy / structure / restart checks.
 Next, in order:
 1. **HSMM (step 3)**: done, round 15, dropped (duration prior is cancelled by the K_TEAM re-calibration).
 2. **Other-games test (rounds 16-17)**: done. `python -m src.other_games` (Metrica sample games 1-3 in
@@ -23,8 +24,9 @@ Next, in order:
    does not transfer); 20d (no ball-missing clue) gains +0.050 spellF1 on Metrica but D lingers after
    restarts on BAR-ATH (live after placed-ball kicks 0.992 -> 0.914, kickoff switch 6 s late). Closest
    miss; flagged for Brandon. **Round 21** (transition rates from Metrica labels): no effect, no change.
-   Next idea if wanted: 20d's learned dead side with a "restart" exception (ball fast after a still /
-   placed ball forces live), or freeze v8. Target freeze ~Nov 13-14.
+   **Round 20e -> v9** (20d + restart rule): Metrica +0.050 held out; BAR-ATH kickoff timing fixed
+   (6.2 s late -> -0.04 s); live-after-kick 0.961 vs 0.992 (same 2 of 51 kicks), 295 possessions
+   (just under the usual 300-400): judgement calls, flagged for Brandon. Target freeze ~Nov 13-14.
 4. **Held:** the one-time public-window sanity score, only once the final version is frozen.
 Brandon wants plain-language before/after reports for every experiment.
 

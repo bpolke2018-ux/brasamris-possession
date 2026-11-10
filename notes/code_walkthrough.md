@@ -1,7 +1,7 @@
 # Code walkthrough: one frame's journey
 
 This note follows a single video frame from the raw tracking file to the letter (`H`, `A` or `D`)
-we write for it in `submissions/v8.csv`. Each stop shows a short excerpt of the real code, what it
+we write for it in `submissions/v9.csv`. Each stop shows a short excerpt of the real code, what it
 does, and why it exists: which football problem or metric issue it solves, with the experiment
 number from `notes/experiments.md`.
 
@@ -243,6 +243,49 @@ Each line adds or subtracts a small number of nats for D on each frame.
   In open play it almost never does. Before v4 the model called 95% of placed balls live.
 - **`throw_hold` (v6, e15):** the ball is seen just beyond a touchline, slow, with a player within
   2.5 m (the thrower). A ball over the line is out of play by definition.
+
+### 5b. v9: the first four clues are learned, plus a restart rule (rounds 20d, 20e)
+
+In v9, CONFIG `learned = "dead"` swaps four of the hand weights above for weights learned from three
+other games (`src/learned.py`, stored in `models/learned_nomiss_rl.json`). The four are player
+speed, ball fast, ball still and the bias. The rest stays hand-set because Metrica's data cannot
+teach it: ball missing (+0.02), ball out, set pieces, throw-in hold and pre-kickoff.
+
+```python
+def dead_core(f, m):                       # src/learned.py
+    d = m["dead"]
+    logit = np.column_stack([np.ones(len(f["bx"])), dead_features(f)]) @ np.array(d["w"])
+    return (logit - d["prior"]) * d["scale"]
+```
+
+- **What it is:** a logistic regression's log-odds of "dead ball" for each frame, with the
+  training base rate taken off (`prior`, so it acts as evidence, not as a prior). It is then
+  multiplied by `scale` (0.2). The scale was picked on held-out games: each game was decoded by a
+  model fitted on the other two.
+- **The learned weights per frame, before scaling:**
+
+  | clue | weight |
+  |---|---|
+  | speed z | 0.83 |
+  | ball fast | −1.71 |
+  | ball still | −0.40 |
+
+  After scaling, speed counts about 4× more than the hand weight did.
+- **Why ball missing is not learned:** Metrica's tracking blanks the ball during stoppages
+  (90–100% missing when dead). On BAR-ATH it is missing in a quarter of live play, so that clue
+  does not transfer.
+
+```python
+def kick_from_still(f, still_s=1.0, kick_speed=6.0, within_s=1.0, live_s=3.0):   # model.py
+    ...  # the 3 s after a still ball (>= 1 s) is struck (> 6 m/s within 1 s)
+out -= CONFIG["restart_live_nats"] * kick_from_still(f)                          # 1.0 nat/frame
+```
+
+- **The restart rule (20e):** under the Laws, a restart ball is in play once it is kicked and
+  clearly moves. Without this rule, the stronger speed clue kept the ball "dead" for a few
+  seconds after restarts, because players are still slow just after a kick. 1 nat per frame is
+  about twice what every other dead clue can add together, so it acts as a rule. The thresholds
+  were fixed from that football logic before the run.
 
 ## 6. `model.emissions`: put the evidence in one table
 

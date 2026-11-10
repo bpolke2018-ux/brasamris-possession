@@ -48,7 +48,8 @@ def _dead_names():
 
 
 def model_path():
-    return MODEL_PATH_NOMISS if model.CONFIG["learned_no_missing"] else MODEL_PATH
+    p = MODEL_PATH_NOMISS if model.CONFIG["learned_no_missing"] else MODEL_PATH
+    return p.replace(".json", "_rl.json") if model.CONFIG["restart_live_nats"] else p   # 20e
 
 
 def team_features(a, f):
@@ -177,6 +178,7 @@ def main_scale():
         best = max(scales, key=lambda s: (np.mean([score[(g, s, h)] for h in train]), -s))
         chosen[g] = best
         tag = "learn_dead_nm" if model.CONFIG["learned_no_missing"] else "learn_dead_s"
+        tag += "_rl" if model.CONFIG["restart_live_nats"] else ""
         np.save(os.path.join(out, "{}_g{}.npy".format(tag, g)), preds[(g, best, g)])
         print("held out game {}: scale {} chosen on games {} (train spellF1 {}), held-out spellF1 {:.3f}".format(
             g, best, train, [round(np.mean([score[(g, s, h)] for h in train]), 3) for s in scales],
@@ -194,4 +196,6 @@ if __name__ == "__main__":
     import sys
     if "--no-missing" in sys.argv:
         model.CONFIG["learned_no_missing"] = True
+    if "--restart-live" in sys.argv:
+        model.CONFIG["restart_live_nats"] = 1.0
     main_scale() if "--dead-scale" in sys.argv else main()

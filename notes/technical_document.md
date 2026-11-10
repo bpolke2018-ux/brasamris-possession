@@ -155,6 +155,9 @@ the structure check is essential.
 | kickoff formation (both teams in own halves) = dead | 0.732 | 335 | no (covers part of one stretch, splits it) |
 | **graded frames before the half's kickoff = dead (v7)** | 0.733 | 330 | yes; that 114 s stretch was 85% live in v6 |
 | **walking pace 1.4 m/s, measured on three other games (v8)** | 0.743 | 314 | yes; Metrica spellF1 +0.009 [+0.003, +0.016], every BAR-ATH check held |
+| per-frame evidence learned on the other games, with ball missing | 0.749 | 304 | no; Metrica +0.080, but BAR-ATH placed-ball restarts collapse |
+| HMM transition rates measured on the other games | 0.742 | 316 | no (no effect) |
+| **dead-ball clues learned on the other games (no ball missing) + restart rule (v9)** | 0.747 | 295 | yes; Metrica spellF1 +0.050 [+0.035, +0.063] held out; BAR-ATH checks equal or better except live-after-kick (same 2 of 51 kicks) |
 
 ## 5b. External data: three other games
 
@@ -177,6 +180,16 @@ involved.
   these games.
 - **Keep rule from then on.** A change is kept only if it hurts neither these games nor the
   BAR-ATH label-free checks.
+- **Learned dead-ball evidence (v9).** A logistic regression fitted on these games' labels sets the
+  weights of four dead-ball clues: player speed, ball fast, ball still and the bias
+  (`src/learned.py`, `models/learned_nomiss_rl.json`).
+  - **Scale:** one overall scale, picked by leave-one-game-out decoding.
+  - **Ball missing is not learned:** Metrica's tracking blanks the ball in stoppages, so that clue
+    does not transfer to BAR-ATH. It stays at its small hand weight.
+  - **Restart rule:** the 3 s after a still ball is struck count as live, as the Laws say.
+  - **Result:** on held-out Metrica games spellF1 is +0.050 over v8 [+0.035, +0.063]. On BAR-ATH
+    every label-free check is equal or better, except a slightly weaker live-after-kick figure on
+    the same 2 of 51 kicks.
 
 ## 6. Possession rules implemented
 
@@ -227,11 +240,11 @@ tuned.
 ```
 pip install -r requirements.txt                    # numpy, pandas
 # data: ./data, ../more-than-a-hack-2027/data, or MTAH_DATA_DIR
-python -m src.run                                  # -> submissions/v8.csv (deterministic)
-python evaluation/validate_submission.py submissions/v8.csv
-python -m src.proxy_eval submissions/v8.csv        # development check, no ground truth
-python -m src.restart_report submissions/v8.csv    # placed-ball restart check
-python -m src.restart_team_report submissions/v8.csv
+python -m src.run                                  # -> submissions/v9.csv (deterministic)
+python evaluation/validate_submission.py submissions/v9.csv
+python -m src.proxy_eval submissions/v9.csv        # development check, no ground truth
+python -m src.restart_report submissions/v9.csv    # placed-ball restart check
+python -m src.restart_team_report submissions/v9.csv
 ```
 
 The first run parses the tracking into `cache/` (1–2 minutes). Later runs take about a minute. The

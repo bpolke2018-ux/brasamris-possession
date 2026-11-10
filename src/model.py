@@ -147,13 +147,16 @@ CONFIG = {
     # "off" (v1-v8), "dead" (learned D core: speed, ball missing / fast / still), "team" (learned
     # H-vs-A from control + context), or "both". Hand-set terms Metrica cannot teach (ball off
     # the pitch, throw-in hold, set pieces, pre-kickoff, kickoff) are kept on top.
-    "learned": "off",
+    "learned": "dead",        # v9 (20d/20e)
     # With a learned dead core, also add the hand-set still-ball term (still_nats) on top (20c).
     "learned_keep_still": False,
     # 20d: learn the dead side WITHOUT the ball-missing clue (Metrica blanks the ball during
     # stoppages, 90-100% missing when dead, so its weight does not transfer to BAR-ATH, where the
     # ball is missing on 24% of live-phase frames); the hand K_BALL_MISSING term is kept instead.
-    "learned_no_missing": False,
+    "learned_no_missing": True,   # v9
+    # 20e restart exception: nats per frame AGAINST dead ball for 3 s after a still ball is struck
+    # (kick_from_still). 1.0 = twice the most all other dead clues can add, i.e. a rule. 0 = off.
+    "restart_live_nats": 1.0,     # v9
     "live_phases": 1,
     "dead_phases": 1,
 }
@@ -342,6 +345,8 @@ def dead_evidence(f, set_piece_mask, kickoff=None, prekick=None, learned_core=No
             out += CONFIG["kickoff_nats"] * kickoff
         if CONFIG["prekick_nats"] and prekick is not None:
             out += CONFIG["prekick_nats"] * prekick
+        if CONFIG["restart_live_nats"]:
+            out -= CONFIG["restart_live_nats"] * kick_from_still(f)
         return out
     seen_in = f["ball_seen"] & ~f["ball_out"]
     z = np.clip((WALK_SPEED - np.nan_to_num(f["mean_speed"], nan=WALK_SPEED)) / SPEED_SCALE, -3, 3)
@@ -360,6 +365,32 @@ def dead_evidence(f, set_piece_mask, kickoff=None, prekick=None, learned_core=No
         out += CONFIG["kickoff_nats"] * kickoff
     if CONFIG["prekick_nats"] and prekick is not None:
         out += CONFIG["prekick_nats"] * prekick
+    if CONFIG["restart_live_nats"]:
+        out -= CONFIG["restart_live_nats"] * kick_from_still(f)
+    return out
+
+
+def kick_from_still(f, still_s=1.0, kick_speed=6.0, within_s=1.0, live_s=3.0):
+    """Bool per frame: the live_s seconds after a still ball is struck (round 20e).
+
+    Football (Laws of the Game): a restart ball is in play once it is kicked and clearly moves.
+    Fixed from that logic, not fitted: still = model.ball_still (< 1.5 m/s over +/- 0.5 s) for
+    >= still_s (a placed ball waits for the kick); struck = ball speed > kick_speed (a pass)
+    within within_s of the stillness ending; then live for live_s (a new stoppage within 3 s of
+    a restart is rare).
+    """
+    still = ball_still(f)
+    n = len(still)
+    out = np.zeros(n, bool)
+    speed = np.nan_to_num(f["ball_speed"], nan=0.0)
+    e = np.diff(np.concatenate(([0], still.astype(np.int8), [0])))
+    for s, t in zip(np.flatnonzero(e == 1), np.flatnonzero(e == -1)):
+        if t - s < still_s * FPS:
+            continue
+        fast = np.flatnonzero(speed[t:min(t + int(within_s * FPS), n)] > kick_speed)
+        if len(fast):
+            k = t + fast[0]
+            out[k:min(k + int(live_s * FPS), n)] = True
     return out
 
 

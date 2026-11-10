@@ -275,11 +275,18 @@ def main():
         else:
             raise KeyError(key)
     rows = []
+    lm = None
+    if model.CONFIG["learned"] != "off":
+        from src import learned
+        lm = learned.load()
+        print("NOTE: learned evidence (v9+) uses the all-games model here, i.e. IN-SAMPLE on these "
+              "games. The honest Metrica score is leave-one-game-out: python -m src.learned "
+              "--dead-scale --no-missing --restart-live (saves learn_dead_nm_rl_g*.npy).")
     for g in [int(x) for x in args.games.split(",")]:
         a = load_tracking(g)
         n = len(a["bx"])
         gt, blocks = gt_labels(g, n)
-        pred, k = predict(a, blocks)
+        pred, k = predict(a, blocks, learned=lm)
         if args.save:
             out = os.path.join(atd.CACHE_DIR, "other_games")
             os.makedirs(out, exist_ok=True)
