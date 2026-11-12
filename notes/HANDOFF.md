@@ -1,6 +1,20 @@
 # Handoff (2026-11-03, updated 2026-11-06 03:10 UTC)
 
-## EXACT RESUME POINT (updated 2026-11-09)
+## EXACT RESUME POINT (updated 2026-11-12): FROZEN, PACKAGED, READY FOR PUSH
+
+**Final = v9, team Brasamris** (git tag `final-v9`). `python -m src.run` -> submissions/Brasamris.csv
+(byte-identical to v9.csv; validated, 199,319 rows). Fresh-clone test passed: new venv from the pinned
+requirements.txt (Python 3.11.9, numpy 2.4.6, pandas 3.1.0), no cache, MTAH_DATA_DIR -> byte-identical.
+Technical document finalised (notes/technical_document.md) and exported to Brasamris.pdf (7 pages).
+One-time public-window sanity score done after the freeze (spellF1 0.500 [0.36, 0.64], macroF1 0.713),
+recorded in tech doc 7.2; nothing tuned on it.
+Left (all need Brandon): 1) GitHub sign-in + OK to create the PUBLIC repo and push (gh CLI is not
+installed; commits carry his Gmail as author -- he may want his GitHub no-reply address instead);
+2) look over Brasamris.pdf; 3) submit the Google Form himself (team name, Brasamris.csv, repo URL,
+Brasamris.pdf) before Nov 17. No more experiments.
+
+## Earlier resume point (2026-11-09/10)
+ (updated 2026-11-09)
 
 Best version: **v9** (`python -m src.run` -> submissions/v9.csv): v8 with the dead-ball clues
 (speed, ball fast, ball still) learned on the 3 Metrica games (models/learned_nomiss_rl.json, ball
