@@ -1,6 +1,6 @@
 """Build a submission from the provided data. Deterministic: no randomness anywhere.
 
-    python -m src.run                                   # -> submissions/v9.csv
+    python -m src.run                                   # -> submissions/Brasamris.csv (= v9)
     python -m src.run --set persist_frames=10 --out cache/exp.csv
     python -m src.run --set POSSESSION_S=20 --out cache/exp.csv   # model.py constants too
 
@@ -16,7 +16,7 @@ import numpy as np
 from src import atd, context, features, model, tagging
 from games import GAME, half_video_blocks
 
-OUT = os.path.join(atd.ROOT, "submissions", "v9.csv")
+OUT = os.path.join(atd.ROOT, "submissions", "Brasamris.csv")   # team name (SUBMISSION.md); = v9
 
 
 TEAM_TAG = {"barcelona": 1.0, "atletic club": -1.0}     # +1 home (H), -1 away (A)

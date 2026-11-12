@@ -10,6 +10,9 @@ cache/
 !evaluation/gt/*.csv
 # Our own submission file is a deliverable and contains labels only, no match data
 !submissions/v*.csv
+!submissions/Brasamris.csv
+# Metrica sample data lives outside the repo (../other_games); never copy it in
+other_games/
 
 # Generated scoring output
 evaluation/reports/
@@ -23,3 +26,6 @@ __pycache__/
 
 # Brandon's own inspection plots (show match data: never commit, never share with an AI)
 outputs/
+
+# editor settings (local paths)
+.vscode/

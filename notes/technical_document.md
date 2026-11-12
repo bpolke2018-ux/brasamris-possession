@@ -1,6 +1,7 @@
-# Ball possession from automatic tracking — technical document (draft)
+# Ball possession from automatic tracking — technical document
 
-*More than a Hack 2027, Phase 1. Draft; to be finalised before 17 November 2026.*
+*More than a Hack 2027, Phase 1. Team **Brasamris**. Final version: **v9** (git tag `final-v9`),
+submission file `Brasamris.csv`.*
 
 ## 1. Approach
 
@@ -28,13 +29,15 @@ All quantities are in metres (pitch 105.3 × 68.0 m, from `games.py`).
 |---|---|---|
 | ball control | H vs A | `exp(-d_min / 3 m) · tanh(margin / 2 m)`, where `d_min` is the distance from the ball to its nearest player and `margin` is (nearest away − nearest home). Applied only when the ball is seen inside the pitch **and moving slower than 8 m/s** |
 | team shape | H vs A | logistic regression on 5 team-shape features (see 1.2), divided by its autocorrelation time |
-| player speed | D | mean player speed relative to walking pace: (1.3 m/s − speed) / 0.4 m/s, clipped to ±3 |
-| ball missing | D | small constant bonus |
+| player speed | D | mean player speed relative to walking pace: (1.4 m/s − speed) / 0.4 m/s, clipped to ±3. **Weight learned on three other games (v9, §5b)** |
+| ball missing | D | small constant bonus (hand-set; not learned, see §5b) |
 | ball out | D | ball seen more than 1 m beyond a line |
-| ball fast in pitch | against D | ball moving faster than 3 m/s inside the pitch means someone kicked it |
+| ball fast in pitch | against D | ball moving faster than 3 m/s inside the pitch means someone kicked it. **Weight learned (v9)** |
 | set-piece window | D | inside a Smart Tagging `SET PIECES` interval |
-| placed ball | D | ball seen inside the pitch and below 1.5 m/s for a full second (±0.5 s). On these frames ball control is **neutral** between live and D |
+| placed ball | D | ball seen inside the pitch and below 1.5 m/s for a full second (±0.5 s). On these frames ball control is **neutral** between live and D. **Weight learned (v9)** |
 | throw-in hold | D | ball seen beyond a touchline, below 3 m/s, a player within 2.5 m (the thrower). Ball control is neutral here too |
+| before the half's kickoff | D (a rule) | graded frames before the half's `Kick Off (Start)` tag: the ball is not in play until the kick (v7) |
+| restart kick | against D (a rule) | the 3 s after a ball that was still for ≥ 1 s is struck at > 6 m/s: a restart ball is in play once kicked (v9) |
 
 **The in-flight gate.** A ball travelling faster than 8 m/s is a pass, clearance or shot. The
 player nearest to it is not controlling it; they are usually an opponent it is passing. Removing
@@ -112,7 +115,10 @@ it so that the decoded match's own mean possession length equals the 12.5 s prio
 
 ## 4. Development without ground truth
 
-The public 5 minutes were **not** used to choose anything. Instead, `src/proxy_eval.py` measures:
+The public 5 minutes were **not** used to choose anything; they were scored once, after the final
+version was frozen, as a sanity check (§7.2). Development used two benches. The second one is
+labelled data from three other games (§5b). The first, on BAR-ATH itself, uses no labels:
+`src/proxy_eval.py` measures:
 
 - **Phase agreement:** the share of live frames inside a team-tagged attacking phase that we give
   to that team, plus the mirror for defending phases. These tags are automatic and noisy, but
@@ -219,8 +225,19 @@ involved.
   tracking.
 - **Long ball gaps:** the shape context helps but is slow (31 s autocorrelation), so turnovers
   inside long gaps are found late.
-- **Next:** a duration-aware model (HSMM); detecting the regroup-then-burst pattern of a restart;
-  the broadcast feed is now aligned by code, but its ball adds little where we need it (§2).
+- **Other-game labels:** Metrica's tracking blanks the ball during stoppages, so its labels
+  overrate any "ball missing" evidence. We learn only the clues that mean the same on both
+  trackers (§5b). The labels come from our own rules on Metrica's events, which miss some
+  stoppages.
+- **Fewer possessions:** v9 predicts 295 possessions, just under the usual 300–400. More time is
+  called dead (42%), which leaves the ball in play about 58% of the time. Both are plausible.
+- **Tried and dropped:**
+  - a duration-aware model (HSMM) and a controlled-possession rule (same player near the ball);
+  - HMM transition rates measured on other games;
+  - per-frame team evidence learned on other games.
+  Reasons are in `notes/experiments.md`, rounds 15–21.
+- **Next with more time:** more labelled games from different trackers, so that the ball-missing
+  clue can be learned per tracker; detecting the regroup-then-burst pattern of a restart.
 
 ### 7.1 Which assumptions matter
 
@@ -230,27 +247,55 @@ priors carry the result:
 
 - **Mean possession length** (12.5 s): K_TEAM is calibrated to it, so it sets the possession count
   (10 s → 423, 15 s → 277).
-- **Walking pace** (1.3 m/s): it sets the dead-ball share (1.1 → 27%, 1.5 → 38%).
+- **Walking pace**: it sets the dead-ball share (1.1 m/s → 27%, 1.5 m/s → 38%).
 
-Both were fixed from general football knowledge in v1, before any development. They were never
-tuned.
+Both were fixed from general football knowledge in v1 (12.5 s, 1.3 m/s) and never tuned on BAR-ATH.
+In v8 the walking pace became 1.4 m/s. That is the midpoint of median team speed in live play and
+in dead ball, measured on three other games (§5b). The possession length was checked on both
+benches and kept.
+
+### 7.2 One-time sanity check on the public 5 minutes
+
+This was run once, after freezing v9, with the official scorer. It was not used to choose or tune
+anything.
+
+| metric | value |
+|---|---|
+| spellF1 | 0.500 (bootstrap 5–95%: 0.36–0.64; 17 possessions) |
+| macroF1 | 0.713 (0.51–0.87) |
+| alive/dead F1 | 0.92 |
+| team accuracy | 0.89 |
+| possessions | 19 predicted, 17 true |
+
+On this window dead ball is under-called (D recall 0.32, precision 1.00). Five minutes is far too
+short to read more into it.
 
 ## 8. Reproduction
 
 ```
-pip install -r requirements.txt                    # numpy, pandas
+pip install -r requirements.txt                    # Python 3.11; numpy 2.4.6, pandas 3.1.0 (pinned)
 # data: ./data, ../more-than-a-hack-2027/data, or MTAH_DATA_DIR
-python -m src.run                                  # -> submissions/v9.csv (deterministic)
-python evaluation/validate_submission.py submissions/v9.csv
-python -m src.proxy_eval submissions/v9.csv        # development check, no ground truth
-python -m src.restart_report submissions/v9.csv    # placed-ball restart check
-python -m src.restart_team_report submissions/v9.csv
+python -m src.run                                  # -> submissions/Brasamris.csv (deterministic)
+python evaluation/validate_submission.py submissions/Brasamris.csv
 ```
 
-The first run parses the tracking into `cache/` (1–2 minutes). Later runs take about a minute. The
-same data always produces a byte-identical file.
+- **Runtime:** the first run parses the tracking into `cache/` (1–2 minutes); later runs take
+  about a minute.
+- **Determinism:** the same data always produces a byte-identical file. We checked this from a
+  fresh clone (README).
+- **Learned weights:** they ship in `models/learned_nomiss_rl.json`, so the Metrica data is not
+  needed to rebuild the submission.
+- **Re-learning the weights** (optional): download github.com/metrica-sports/sample-data into
+  `../other_games`, then run `python -m src.learned --dead-scale --no-missing --restart-live`.
+  `python -m src.other_games` and `python -m src.other_games_boot` reproduce the robustness tables.
+- **Development checks** (no ground truth): `python -m src.proxy_eval`, `src.restart_report` and
+  `src.restart_team_report`, each followed by `submissions/Brasamris.csv`.
 
 ## 9. Training data
 
-No human-labelled data of any kind. The only learned component (§1.2) is fitted on pseudo-labels
-produced by the algorithm from the provided tracking.
+**No labels of any kind on the provided game (BAR-ATH).** The pipeline uses two labelled sources.
+
+| data | source | labelled by | how much | used for |
+|---|---|---|---|---|
+| Team-shape pseudo-labels on BAR-ATH | made by the algorithm from BAR-ATH tracking (§1.2) | no person: unambiguous ball-control frames | 24,631 frames | the team-shape context model |
+| Metrica Sports sample data, games 1–3 | public: github.com/metrica-sports/sample-data (3 anonymised matches, 25 fps tracking) | Metrica Sports' own hand-coded event data, turned into H/A/D labels by our fixed rules (`src/other_games.py`, `notes/other_games.md`) | 3 matches; 424,886 graded frames (~283 min); 7,300 events; 1,039 possessions | dead-ball clue weights (v9); walking-pace value (v8); robustness tests of every design choice (§5b) |

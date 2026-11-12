@@ -1,11 +1,9 @@
-# Everything the evaluation needs. Deliberately two lines.
-#
-# The scorer is dependency-light on purpose: no sklearn, no torch, nothing that pins a Python
-# version. It runs under 3.8 and 3.11 alike and produces identical output, so "it scored
-# differently on my machine" is not a conversation anyone has to have.
-#
-# Optional tooling -- the ATD loader and anything that opens the video -- lives in
-# requirements-starter.txt.
-numpy
-pandas
-matplotlib  # optional: only src/inspect_window.py
+# Pinned: the exact versions that produced submissions/Brasamris.csv (Python 3.11.9).
+# numpy and pandas are the only direct dependencies of the pipeline; the next three are pandas' own.
+numpy==2.4.6
+pandas==3.1.0
+python-dateutil==4.0.0
+six==1.17.0
+tzdata==2026.6
+# Optional, only for src/inspect_window.py (plots for a person to look at; not used by the run):
+# matplotlib==3.11.2
