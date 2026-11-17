@@ -2,6 +2,7 @@
 
 Team **Brasamris**'s entry to the More than a Hack 2027 challenge
 ([starter repository](https://github.com/metrica-sports/more-than-a-hack-2027)).
+Team members: Brandon, Samuel Schamroth, Christopher Clinton.
 
 **What it does.** For every frame of the FC Barcelona vs Athletic Club match (game id `BAR-ATH`,
 25 frames per second, 199,319 frames of the high "tactical" camera), it writes one label:

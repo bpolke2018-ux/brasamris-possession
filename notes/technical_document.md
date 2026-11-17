@@ -3,6 +3,8 @@
 *More than a Hack 2027, Phase 1. Team **Brasamris**. Final version: **v10** (git tag
 `final-v10`), submission file `Brasamris.csv`. Code: github.com/bpolke2018-ux/brasamris-possession.*
 
+*Team members: Brandon (GitHub bpolke2018-ux), Samuel Schamroth, Christopher Clinton.*
+
 ## 1. Approach
 
 We label every frame of the tactical video as home (`H`) possession, away (`A`) possession, or
