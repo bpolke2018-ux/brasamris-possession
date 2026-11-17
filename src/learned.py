@@ -49,7 +49,8 @@ def _dead_names():
 
 def model_path():
     p = MODEL_PATH_NOMISS if model.CONFIG["learned_no_missing"] else MODEL_PATH
-    return p.replace(".json", "_rl.json") if model.CONFIG["restart_live_nats"] else p   # 20e
+    # 20e: with the restart rule on (v9), the weights were refit with it -> the "_rl" file.
+    return os.path.splitext(p)[0] + "_rl.json" if model.CONFIG["restart_live_nats"] else p
 
 
 def team_features(a, f):

@@ -233,7 +233,7 @@ def ball_still(f, cfg=CONFIG):
 Each line adds or subtracts a small number of nats for D on each frame.
 
 - **Player speed:** players average about 2 m/s in play and walk (about 1 m/s) in stoppages.
-  `z` measures how far below walking pace (1.3 m/s) they are. At 0.04 nats per unit, z = +3
+  `z` measures how far below walking pace (1.4 m/s since v8; 1.3 m/s before) they are. At 0.04 nats per unit, z = +3
   (everyone nearly still) gives 0.12 nats/frame, about 3 nats per second.
 - **Ball missing (+0.02), ball out (+0.15), ball fast inside the pitch (−0.05)**, plus a tagged
   set-piece window (+0.01).
@@ -431,16 +431,16 @@ def decode(E, n, abstain=False):
 Open a terminal in VS Code (Terminal → New Terminal) and run these once per session:
 
 ```powershell
-cd "D:\Barcelona Hackathon\team-solution"
-$py = "..\more-than-a-hack-2027\.venv\Scripts\python.exe"
+cd <your clone of this repo>          # the folder that holds README.md
+$py = ".venv\Scripts\python.exe"     # the virtual environment made in the README
 ```
 
-**(a) Run the pipeline** (about 1 minute). It writes `submissions\v6.csv` and prints K_TEAM, the
+**(a) Run the pipeline** (about 1 minute). It writes `submissions\Brasamris.csv` and prints K_TEAM, the
 label shares and the possession count:
 
 ```powershell
 & $py -m src.run
-& $py evaluation\validate_submission.py submissions\v6.csv
+& $py evaluation\validate_submission.py submissions\Brasamris.csv
 ```
 
 **(b) Change one setting and compare.** Always write experiments to `cache\exp\` so you never
@@ -465,7 +465,7 @@ agreement with far fewer possessions is the trap from e8/e9, not a win.
 ```
 
 The image is saved in `outputs\`, which is gitignored. **It shows match data: it is for your
-eyes only. Don't commit it, and don't paste or upload it to any AI assistant (including me).**
+eyes only. Don't commit it, and don't paste or upload it to any AI assistant.**
 The public ground-truth band appears only for half 1, minutes 0–5. Use it to understand what the
 labels mean, never to choose settings (RULES.md).
 

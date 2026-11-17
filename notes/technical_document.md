@@ -1,7 +1,7 @@
 # Ball possession from automatic tracking — technical document
 
-*More than a Hack 2027, Phase 1. Team **Brasamris**. Final version: **v9** (git tag `final-v9`),
-submission file `Brasamris.csv`.*
+*More than a Hack 2027, Phase 1. Team **Brasamris**. Final version: **v10** (git tag
+`final-v10`), submission file `Brasamris.csv`. Code: github.com/bpolke2018-ux/brasamris-possession.*
 
 ## 1. Approach
 
@@ -9,6 +9,11 @@ We label every frame of the tactical video as home (`H`) possession, away (`A`) 
 dead ball (`D`). Each frame gets a small amount of evidence for each state. A **three-state
 hidden Markov model** turns that evidence into the most likely sequence of states (Viterbi
 decoding, run separately for each half).
+
+Two terms used throughout. **spellF1**, the ranking metric, matches predicted possessions (whole
+runs of `H` or `A`) to the true ones and scores the overlap; **macroF1** is the per-frame F1
+averaged over `H`, `A` and `D`. Evidence is measured in **nats**, the natural-log units of
+probability: +1 nat for a state means the frame is about 2.7 times more likely under it.
 
 Why this design and not a per-frame classifier:
 
@@ -34,7 +39,7 @@ All quantities are in metres (pitch 105.3 × 68.0 m, from `games.py`).
 | ball out | D | ball seen more than 1 m beyond a line |
 | ball fast in pitch | against D | ball moving faster than 3 m/s inside the pitch means someone kicked it. **Weight learned (v9)** |
 | set-piece window | D | inside a Smart Tagging `SET PIECES` interval |
-| placed ball | D | ball seen inside the pitch and below 1.5 m/s for a full second (±0.5 s). On these frames ball control is **neutral** between live and D. **Weight learned (v9)** |
+| placed ball | D | ball seen inside the pitch and below 1.5 m/s for a full second (±0.5 s). On these frames ball control is **neutral** between live and D. Mild D evidence: hand weight on top of the learned one (v10, see 1.4) |
 | throw-in hold | D | ball seen beyond a touchline, below 3 m/s, a player within 2.5 m (the thrower). Ball control is neutral here too |
 | before the half's kickoff | D (a rule) | graded frames before the half's `Kick Off (Start)` tag: the ball is not in play until the kick (v7) |
 | restart kick | against D (a rule) | the 3 s after a ball that was still for ≥ 1 s is struck at > 6 m/s: a restart ball is in play once kicked (v9) |
@@ -91,7 +96,36 @@ would be counted hundreds of times.
   tag.
 
 The overall weight of the H/A evidence (`K_TEAM`) is **calibrated without labels**: bisection sets
-it so that the decoded match's own mean possession length equals the 12.5 s prior.
+it so that the decoded match's own mean possession length equals the 12.5 s prior. For the final
+version it comes out at **K_TEAM = 1.1669**.
+
+### 1.4 The final dead-ball weights, in one table
+
+Per frame, in nats for D against the live states (positive = towards dead ball). "Learned" means
+fitted on the three other games (§5b): the logistic weight times the overall scale 0.2, minus the
+prior.
+
+| clue | weight per frame | source |
+|---|---|---|
+| constant (bias) | +0.10 | learned |
+| player speed below walking pace | +0.17 per unit of z, z = (1.4 − speed) / 0.4, clipped to ±3 | learned |
+| ball fast (> 3 m/s) in the pitch | −0.34 | learned |
+| ball still (placed) | −0.08 learned + 0.10 hand = **+0.02** | v10 (see below) |
+| ball missing | +0.02 | hand (not learned: §5b) |
+| ball out of the pitch | +0.15 | hand |
+| throw-in hold | +0.15 | hand |
+| inside a set-piece tag window | +0.01 | hand |
+| 3 s after a still ball is struck | −1.0 (a rule: live) | hand |
+| before the half's kickoff tag | +50 (a rule: dead) | hand |
+
+**Why the still-ball weight is corrected (v10).** In the Metrica games the ball is blanked during
+stoppages, so a ball that is *seen* still there is almost always in live play. The regression
+therefore learns that a still ball means live (−0.08), which is the opposite of a placed ball at
+a restart. This is the same artefact that made us leave out the ball-missing clue. v10 adds the
+hand-set +0.1 back on top, so a placed ball is mild dead-ball evidence again. On BAR-ATH every
+label-free check improves (play is called dead before 45% of placed-ball kicks instead of 35%;
+the restart lands within 1 s of the kick 45% of the time instead of 33%). On the Metrica games it
+costs 0.003 spellF1, as expected, because there a seen-still ball really is live.
 
 ## 2. Assets used and dropped
 
@@ -164,6 +198,10 @@ the structure check is essential.
 | per-frame evidence learned on the other games, with ball missing | 0.749 | 304 | no; Metrica +0.080, but BAR-ATH placed-ball restarts collapse |
 | HMM transition rates measured on the other games | 0.742 | 316 | no (no effect) |
 | **dead-ball clues learned on the other games (no ball missing) + restart rule (v9)** | 0.747 | 295 | yes; Metrica spellF1 +0.050 [+0.035, +0.063] held out; BAR-ATH checks equal or better except live-after-kick (same 2 of 51 kicks) |
+| **hand still-ball term back on top of the learned one (v10)** | 0.751 | 291 | yes; every BAR-ATH check equal or better; Metrica −0.003 [−0.006, +0.000], explained by its ball blanking (§1.4) |
+
+Phase-agreement differences under about 0.005 are within noise; that is why every keep/drop call
+also needs the structure and restart checks.
 
 ## 5b. External data: three other games
 
@@ -203,7 +241,7 @@ involved.
   the nearest opponent. A ball in flight gives no evidence, so passes, clearances and deflections
   do not hand over possession by themselves.
 - **Loose and contested balls:** small margins give little evidence, so the previous team keeps
-  possession, as CHALLENGE.md requires.
+  possession, as the challenge's possession definition requires.
 - **Dead ball:** players slow to walking pace, the ball is lost or out of the pitch, or a set piece
   is tagged.
 - **Restarts:** either team, decided by the evidence that follows.
@@ -229,8 +267,15 @@ involved.
   overrate any "ball missing" evidence. We learn only the clues that mean the same on both
   trackers (§5b). The labels come from our own rules on Metrica's events, which miss some
   stoppages.
-- **Fewer possessions:** v9 predicts 295 possessions, just under the usual 300–400. More time is
-  called dead (42%), which leaves the ball in play about 58% of the time. Both are plausible.
+- **The ball-fast weight may carry the same artefact.** On Metrica a fast ball is only ever seen in
+  live play, so its learned weight (−0.34 per frame, seven times the old hand weight) may end some
+  stoppages early when the ball is kicked back to a restart spot. We had no clean way to test this
+  without BAR-ATH labels, so it is left as learned.
+- **Fewer possessions:** v10 predicts 291 possessions, just under the usual 300–400. More time is
+  called dead (43%), which leaves the ball in play about 57% of the time. Both are plausible.
+- **Numerical precision:** ball speed is smoothed with a running sum in 32-bit floats, which drifts
+  by about 0.01–0.03 m/s late in a half, far below the 1.5–8 m/s thresholds. It is deterministic,
+  so it does not affect reproduction.
 - **Tried and dropped:**
   - a duration-aware model (HSMM) and a controlled-possession rule (same player near the ball);
   - HMM transition rates measured on other games;
@@ -257,7 +302,8 @@ benches and kept.
 ### 7.2 One-time sanity check on the public 5 minutes
 
 This was run once, after freezing v9, with the official scorer. It was not used to choose or tune
-anything.
+anything. The final v10 change (§1.4) came later from a code review and was decided on the
+label-free checks only; v10 was **not** scored on this window, so the figures below are v9's.
 
 | metric | value |
 |---|---|
@@ -273,11 +319,17 @@ short to read more into it.
 ## 8. Reproduction
 
 ```
-pip install -r requirements.txt                    # Python 3.11; numpy 2.4.6, pandas 3.1.0 (pinned)
-# data: ./data, ../more-than-a-hack-2027/data, or MTAH_DATA_DIR
+python -m venv .venv                               # Python 3.11, then activate it (README)
+pip install -r requirements.txt                    # numpy 2.4.6, pandas 3.1.0 (pinned)
+# data: MTAH_DATA_DIR if set, else ./data, else ../more-than-a-hack-2027/data (README)
 python -m src.run                                  # -> submissions/Brasamris.csv (deterministic)
 python evaluation/validate_submission.py submissions/Brasamris.csv
 ```
+
+- **Fingerprint:** SHA-256 of `Brasamris.csv` is
+  `47c16c959349ee4dfa7de7c976344cd67d95fba42e52c5d09f08247183765d96` (Windows 10 x86-64,
+  Python 3.11.9). If another machine differs, `python -m src.run --k-team 1.1669` skips the
+  calibration search, the one step where a last-digit rounding difference could matter.
 
 - **Runtime:** the first run parses the tracking into `cache/` (1–2 minutes); later runs take
   about a minute.
@@ -299,3 +351,16 @@ python evaluation/validate_submission.py submissions/Brasamris.csv
 |---|---|---|---|---|
 | Team-shape pseudo-labels on BAR-ATH | made by the algorithm from BAR-ATH tracking (§1.2) | no person: unambiguous ball-control frames | 24,631 frames | the team-shape context model |
 | Metrica Sports sample data, games 1–3 | public: github.com/metrica-sports/sample-data (3 anonymised matches, 25 fps tracking) | Metrica Sports' own hand-coded event data, turned into H/A/D labels by our fixed rules (`src/other_games.py`, `notes/other_games.md`) | 3 matches; 424,886 graded frames (~283 min); 7,300 events; 1,039 possessions | dead-ball clue weights (v9); walking-pace value (v8); robustness tests of every design choice (§5b) |
+
+## 10. Disclosures
+
+- **Public 5-minute ground truth.** Besides the one sanity score in §7.2, it was touched twice,
+  and nothing was chosen or tuned on either: `src/inspect_window.py` can draw it as a band beside
+  our labels in a plot for a person to look at (never used to pick a setting), and once, while
+  writing that tool, its metadata JSON was printed, which shows window-level totals (label counts,
+  possession count and mean length).
+- **AI assistance.** The code and this document were written with the help of an AI coding
+  assistant (Claude). No match data was ever sent to it or to any other hosted model: it saw
+  only code, documentation and aggregate statistics printed by our own scripts (counts, shares,
+  medians), never raw tracking rows, frames, video or plots. The match data stayed on a local
+  drive outside any cloud sync.

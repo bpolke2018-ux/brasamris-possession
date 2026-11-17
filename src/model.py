@@ -10,8 +10,8 @@ import numpy as np
 
 from src.features import FPS
 
-H, A, D = 0, 1, 2
-LABELS = np.array(["H", "A", "D"])
+H, A, D = 0, 1, 2                      # column of each state in the (n, 3) evidence tables
+LABELS = np.array(["H", "A", "D"])     # H = home has the ball, A = away, D = dead ball
 
 # --- transitions -----------------------------------------------------------------------------
 # A possession in elite football lasts ~10-15 s on average; take 12.5 s. Roughly a third of
@@ -149,7 +149,12 @@ CONFIG = {
     # the pitch, throw-in hold, set pieces, pre-kickoff, kickoff) are kept on top.
     "learned": "dead",        # v9 (20d/20e)
     # With a learned dead core, also add the hand-set still-ball term (still_nats) on top (20c).
-    "learned_keep_still": False,
+    # v10 (round 22): on. Metrica blanks the ball in stoppages, so there a ball that is SEEN still
+    # is almost always in live play, and the learned still weight comes out negative (-0.08 nats
+    # per frame, i.e. a placed ball argued for live). That is the same artefact that made us drop
+    # the ball-missing clue (20d). Adding the hand term back (+0.1) makes a placed ball mild
+    # dead-ball evidence again, as in v4-v8.
+    "learned_keep_still": True,   # v10
     # 20d: learn the dead side WITHOUT the ball-missing clue (Metrica blanks the ball during
     # stoppages, 90-100% missing when dead, so its weight does not transfer to BAR-ATH, where the
     # ball is missing on 24% of live-phase frames); the hand K_BALL_MISSING term is kept instead.
@@ -449,6 +454,9 @@ def emissions(team_llr, dead, k_team=None, extra_llr=0.0, still=None):
     """(n, 3) log-scores. Only differences between states matter.
 
     team_llr is scaled by K_TEAM; extra_llr (e.g. shape context) is already in nats and is not.
+    The H-vs-A evidence is split symmetrically: +total/2 for H, -total/2 for A. On `still`
+    frames (placed ball, throw-in) D also gets the better live state's share (|total|/2), so ball
+    control decides which team but does not argue for live over dead ball.
     """
     k = K_TEAM if k_team is None else k_team
     total = k * team_llr + extra_llr
@@ -499,16 +507,21 @@ def viterbi(E, logT, restart_pen=None):
     """Most likely state path for one contiguous block. Uniform initial distribution.
 
     restart_pen: optional (n, 2) extra log-cost of the D -> H and D -> A transitions into frame i.
+
+    score[j] = log-score of the best path that ends in state j at the current frame; back[i, j]
+    remembers which state that best path came from, so the path is read off backwards at the end.
+    Ties go to the lower state index (H, then A, then D), which keeps the result deterministic.
     """
     n = len(E)
     back = np.zeros((n, 3), np.int8)
     score = E[0].copy()
-    t = logT.tolist()
+    t = logT.tolist()          # plain Python lists: much faster than numpy in a per-frame loop
     pen = restart_pen.tolist() if restart_pen is not None else None
     for i in range(1, n):
         s0, s1, s2 = score
         new = np.empty(3)
         for j in range(3):
+            # c0/c1/c2: arrive in state j from H / A / D
             c0, c1, c2 = s0 + t[0][j], s1 + t[1][j], s2 + t[2][j]
             if pen is not None and j < 2:
                 c2 -= pen[i][j]

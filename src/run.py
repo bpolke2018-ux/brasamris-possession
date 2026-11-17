@@ -1,10 +1,22 @@
 """Build a submission from the provided data. Deterministic: no randomness anywhere.
 
-    python -m src.run                                   # -> submissions/Brasamris.csv (= v9)
+Run from the repository root (the folder that holds README.md):
+
+    python -m src.run                                   # -> submissions/Brasamris.csv
     python -m src.run --set persist_frames=10 --out cache/exp.csv
     python -m src.run --set POSSESSION_S=20 --out cache/exp.csv   # model.py constants too
 
 v1 (committed earlier) is reproduced by: --k-team 1.0 --set max_control_ball_speed=None
+
+The steps, in the order main() runs them:
+  1. read the tracking (src/atd.py) and turn it into per-frame features (src/features.py);
+  2. turn the features into evidence, in log-probability units ("nats"):
+     - for home vs away (who controls the ball, team shape: model.py, context.py);
+     - for live vs dead ball (player speed, ball still or out, set-piece tags: model.py, learned.py);
+  3. calibrate K_TEAM, the weight of the home/away evidence, so that possessions last 12.5 s on
+     average (a football prior, not fitted to any labels);
+  4. decode each half with Viterbi (model.py), which picks the most likely H/A/D sequence;
+  5. write one label per video frame. Frames outside the two halves are X (never scored).
 """
 
 import argparse
@@ -16,7 +28,8 @@ import numpy as np
 from src import atd, context, features, model, tagging
 from games import GAME, half_video_blocks
 
-OUT = os.path.join(atd.ROOT, "submissions", "Brasamris.csv")   # team name (SUBMISSION.md); = v9
+OUT = os.path.join(atd.ROOT, "submissions", "Brasamris.csv")   # named after the team; = v10
+FPS = features.FPS                                               # 25 frames per second
 
 
 TEAM_TAG = {"barcelona": 1.0, "atletic club": -1.0}     # +1 home (H), -1 away (A)
@@ -31,7 +44,7 @@ def set_piece_evidence(n, cfg=model.CONFIG):
     team_sign: +1/-1 for the tagged restarting team, over the first `sp_team_s` seconds after the
     tag start (corners, goal kicks, free kicks carry a Team; throw-ins and kickoffs do not).
     """
-    fps = 25
+    fps = FPS
     dead = np.zeros(n, bool)
     team = np.zeros(n, np.float64)
     for e in tagging.load():
@@ -52,7 +65,7 @@ def restart_penalty(n, cfg=model.CONFIG):
     """(n, 2) cost of D -> H / D -> A at each frame from team-tagged SET PIECES (or None)."""
     if not cfg["sp_restart_pen"]:
         return None
-    fps = 25
+    fps = FPS
     pen = np.zeros((n, 2))
     for e in tagging.load():
         if (e["code"] or "").strip().lower() != "set pieces":
@@ -95,6 +108,11 @@ def load_tracking(cfg=model.CONFIG):
 
 
 def decode(E, n, abstain=False):
+    """H/A/D label per frame from the (n, 3) evidence table E, decoding each half separately.
+
+    Frames outside the two halves stay X (halftime, before kickoff: never scored). The HSMM
+    "chain" branch and X abstention are experiments that are switched off in v9 (model.CONFIG).
+    """
     labels = np.full(n, "X", dtype="<U1")      # ungraded frames: never scored
     logT = model.transition_logs()
     pen = restart_penalty(n)
@@ -131,8 +149,9 @@ def possessions(labels):
 def calibrate(team_llr, dead, n, extra=0.0, target_s=None, steps=12, still=None):
     """K_TEAM such that the decoded match's own mean possession length is target_s.
 
-    Larger K_TEAM -> more evidence -> more, shorter possessions, so bisect in log space.
-    Deterministic: fixed bracket, fixed number of steps.
+    Larger K_TEAM -> more evidence -> more, shorter possessions, so bisect in log space: if the
+    possessions come out too long, K_TEAM is too small and the lower end of the bracket moves up.
+    Deterministic: fixed bracket [0.05, 20], fixed number of steps.
     """
     if target_s is None:
         target_s = model.POSSESSION_S          # read at call time so --set POSSESSION_S=.. works
@@ -171,10 +190,13 @@ def main():
     a = load_tracking()
     f = features.compute(a)
     n = len(a["bx"])
+    # Home-vs-away evidence from ball control ("llr" = log-likelihood ratio, + for home).
     team_llr = model.team_evidence(f, model.CONFIG)
     sp_dead, sp_team = set_piece_evidence(n)
     kickoff = model.kickoff_formation(a, f) if model.CONFIG["kickoff_nats"] else None
     prekick = prekick_mask(n) if model.CONFIG["prekick_nats"] else None
+    # Live-vs-dead evidence. v9 uses lmode "dead": the speed / ball-fast / ball-still weights
+    # come from the three Metrica games (models/learned_nomiss_rl.json, see src/learned.py).
     lmode = model.CONFIG["learned"]
     lm = None
     if lmode != "off":
@@ -183,6 +205,7 @@ def main():
     dead = model.dead_evidence(f, sp_dead, kickoff, prekick,
                                learned.dead_core(f, lm) if lmode in ("dead", "both") else None)
 
+    # Evidence already in nats, added after K_TEAM scaling: set-piece team tag and team shape.
     extra = model.CONFIG["sp_team_nats"] * sp_team
     if model.CONFIG["context"]:
         extra = extra + model.CONFIG["context_scale"] * context.context_llr(a, f)
@@ -190,6 +213,8 @@ def main():
         team_llr = learned.team_core(a, f, lm)    # control + context, learned
         extra = model.CONFIG["sp_team_nats"] * sp_team
 
+    # Frames where a player next to the ball says WHICH team, not WHETHER the ball is live
+    # (placed ball, throw-in): there ball control counts equally for live and dead.
     still = model.ball_still(f)
     if model.CONFIG["hold_nats"]:
         still = still | model.throw_hold(f)
@@ -207,8 +232,11 @@ def main():
 
     count, mean_s = possessions(labels)
     graded = labels != "X"
-    print("wrote {}  (K_TEAM {}, config {})".format(
-        os.path.relpath(args.out, atd.ROOT), k_team, model.CONFIG))
+    try:
+        shown = os.path.relpath(args.out, atd.ROOT)
+    except ValueError:                         # Windows: --out on another drive than the repo
+        shown = args.out
+    print("wrote {}  (K_TEAM {}, config {})".format(shown, k_team, model.CONFIG))
     print("graded frames: H {:.1f}%  A {:.1f}%  D {:.1f}%".format(
         *(100 * np.mean(labels[graded] == s) for s in "HAD")))
     print("possessions (full match): {}  mean duration {:.1f} s".format(count, mean_s))

@@ -12,8 +12,9 @@ when you read the tracking data, which runs on its own counter.
 
 Data location
 -------------
-The match assets are gated: they are not in this repository. Download them (see DATA.md) and put
-them in ./data, or point MTAH_DATA_DIR somewhere else:
+The match assets are gated: they are not in this repository. Download them (see DATA.md in the
+starter repository, https://github.com/metrica-sports/more-than-a-hack-2027) and put them in
+./data, or point MTAH_DATA_DIR somewhere else:
 
     export MTAH_DATA_DIR=/path/to/mtah2027        # macOS / Linux
     $env:MTAH_DATA_DIR = "D:\\mtah2027"           # Windows PowerShell
@@ -177,7 +178,8 @@ def require(names, game=GAME, data_dir=None, source=DEFAULT_SOURCE):
     missing = [path for _, path in wanted if not os.path.isfile(path)]
     if missing:
         raise IOError(
-            "match data not found:\n  {}\n\nThe data is gated -- see DATA.md. Unpack the bundle "
+            "match data not found:\n  {}\n\nThe data is gated -- see DATA.md in "
+            "https://github.com/metrica-sports/more-than-a-hack-2027. Unpack the bundle "
             "into\n  {}\nor point MTAH_DATA_DIR at wherever you put it."
             .format("\n  ".join(missing), data_dir or DATA_DIR))
     return [path for _, path in wanted]

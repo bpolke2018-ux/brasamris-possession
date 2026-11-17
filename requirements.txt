@@ -7,3 +7,4 @@ six==1.17.0
 tzdata==2026.6
 # Optional, only for src/inspect_window.py (plots for a person to look at; not used by the run):
 # matplotlib==3.11.2
+# The copied starter/ helpers can also use kloppy and IPython; the pipeline never imports them.

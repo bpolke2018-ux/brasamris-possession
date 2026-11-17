@@ -1,7 +1,7 @@
 # Other games: held-out robustness test (Metrica Sports sample data)
 
-**Source.** github.com/metrica-sports/sample-data. Brandon downloaded it himself on 2026-11-09 into
-`D:\Barcelona Hackathon\other_games`, outside the repo, and it is never committed. Three games, all
+**Source.** github.com/metrica-sports/sample-data. A team member downloaded it on 2026-11-09 into
+`../other_games`, a folder next to the repo (not inside it), and it is never committed. Three games, all
 tracked at 25 fps in normalised coordinates (we scale to 105 x 68 m), with no player-speed field
 (we compute it from positions) and with hand-coded event data. Games 1 and 2 come as CSV per team
 plus CSV events. Game 3 comes as EPTS text, like our own match, with its 22 player slots remapped

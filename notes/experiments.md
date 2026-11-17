@@ -306,3 +306,15 @@ KEPT as **v9**, with two judgement calls flagged for Brandon (live-after-kick on
 | v8 + restart rule | +0.000 | +0.000 | 0.743 | 0.579 | 314 | 0.380 | 0.267 | 0.294 | 0.999 | 0.12 | 0.400 |
 | 20d | +0.050 [+0.035, +0.063] | +0.026 [+0.018, +0.035] | 0.747 | 0.585 | 294 | 0.420 | 0.358 | 0.294 | 0.914 | 6.20 | 0.467 |
 | **20e = v9** | +0.050 [+0.035, +0.063] | +0.026 [+0.018, +0.035] | 0.747 | 0.585 | 295 | 0.419 | 0.349 | 0.333 | 0.961 | -0.04 | 0.467 |
+
+## round 22: hand still-ball term back on top of the learned dead side -> v10 — 2026-11-17
+
+What: review finding (a judge-style read of the code and weights). The learned dead side (v9) weights a seen-still ball at -0.40 x scale 0.2 = -0.08 nats/frame, i.e. AGAINST dead ball. Reason: Metrica blanks the ball during stoppages, so on those games a ball that is seen still is almost always in live play. That is the same artefact that made us drop the learned ball-missing clue (20d). Test: the existing switch `learned_keep_still=True` adds the hand still term (+0.1 nats/frame, v4-v8) on top; net effect of a placed ball becomes +0.02 nats/frame towards D. One flag, no refit.
+BAR-ATH: every label-free check equal or better. phase_agree 0.747 -> 0.751, after-tagged-restart 0.585 -> 0.600, short (<2 s) possessions 0.105 -> 0.089, D before placed-ball kicks 0.349 -> 0.448, placed-ball restart within 1 s 0.333 -> 0.451, throw-in restart within 1 s 0.467 -> 0.533, live after placed-ball kick 0.961 (same), kickoff checks identical. 291 possessions (v9 295), D 0.428 (v9 0.419). K_TEAM 1.1669.
+Metrica (in-sample weights for both, paired bootstrap): spellF1 -0.003 [-0.006, +0.000], macroF1 -0.004 [-0.006, -0.001]. Expected from the artefact itself: on Metrica a seen-still ball really is live, so any dead-ball credit for it costs a little there. Same pattern and same call as the v4 still-ball rule in round 17 (-0.006 spellF1 on Metrica, kept for BAR-ATH restart timing).
+KEPT as **v10** (judgement call: the Metrica bench cannot judge this clue because of the blanking; every BAR-ATH check improves). v9.csv kept. Not scored on the public window (the one-time sanity score in the technical document is v9's).
+
+| run | Metrica spellF1 gap [5-95%] | macroF1 gap | phase_agree | after_restart_20s | possessions | share_D | short_lt2s | pbk_d_before | pbk_restart_1s | pbk_live_after | throw_restart_1s |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| v9 | (0.568 in-sample) | (0.805) | 0.747 | 0.585 | 295 | 0.419 | 0.105 | 0.349 | 0.333 | 0.961 | 0.467 |
+| **v10 = v9 + hand still term** | -0.003 [-0.006, +0.000] | -0.004 [-0.006, -0.001] | 0.751 | 0.600 | 291 | 0.428 | 0.089 | 0.448 | 0.451 | 0.961 | 0.533 |

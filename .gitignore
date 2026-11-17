@@ -24,8 +24,12 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
-# Brandon's own inspection plots (show match data: never commit, never share with an AI)
+# Inspection plots for a person to look at (show match data: never commit, never share with an AI)
 outputs/
+
+# Internal working notes (session hand-offs), kept locally only
+notes/HANDOFF.md
+.git-rewrite/
 
 # editor settings (local paths)
 .vscode/
